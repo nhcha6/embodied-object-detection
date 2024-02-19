@@ -1,0 +1,30 @@
+name_experiment: gru_fullrez_lastlayer_m256
+model:
+    arch: smnet
+    finetune: False
+    n_obj_classes: 13
+    ego_feature_dim: 64
+    mem_feature_dim: 256
+    mem_update: gru
+    ego_downsample: False
+data:
+    train_split: train
+    val_split: val
+    root: data/training/
+    ego_downsample: False
+    feature_type: lastlayer
+training:
+    train_epoch: 200
+    batch_size: 1
+    n_workers: 2
+    print_interval: 20
+    optimizer:
+        lr: 1.0e-4
+        momentum: 0.9
+        weight_decay: 4.0e-4
+    scheduler:
+        lr_decay_rate: 0.8
+        lr_epoch_per_decay: 30
+    resume:
+    load_model:
+seed: 9876

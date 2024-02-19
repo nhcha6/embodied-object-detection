@@ -1,0 +1,66 @@
+_BASE_: "Base-C2_L_R5021k_640b64_4x.yaml"
+MODEL:
+  WEIGHTS: "models/BoxSup-C2_LCOCO_CLIP_SwinB_896b32_4x.pth"
+  DYNAMIC_CLASSIFIER: False
+  ROI_BOX_HEAD:
+    USE_ZEROSHOT_CLS: True
+    IMAGE_LABEL_LOSS: 'max_size'
+    # ZEROSHOT_WEIGHT_PATH: 'datasets/metadata/lvis-21k_clip_a+cname.npy'
+    ZEROSHOT_WEIGHT_PATH: "/home/nicolas/hpc-home/interactron/Detic/datasets/metadata/interactron_embeddings.npy"
+    # ZEROSHOT_WEIGHT_PATH: "Detic/datasets/metadata/interactron_embeddings.npy"
+    USE_FED_LOSS: False # Federated loss is enabled when DYNAMIC_CLASSIFIER is on
+  ROI_HEADS:
+    NUM_CLASSES: 1235
+  BACKBONE:
+    NAME: build_swintransformer_fpn_backbone
+  SWIN:
+    SIZE: B-22k
+  FPN:
+    IN_FEATURES: ["swin1", "swin2", "swin3"]
+  RESET_CLS_TESTS: True
+  # TEST_CLASSIFIERS: ("datasets/metadata/oid_clip_a+cname.npy","datasets/metadata/o365_clip_a+cnamefix.npy")
+  # TEST_CLASSIFIERS: ("datasets/metadata/scene0006_00_open_vocab_clip_a+name.npy",)
+  # TEST_CLASSIFIERS: ("/home/nicolas/hpc-home/scene_graphs/detpro-main/data/detic_proposals/scene0006_00_train/prompts/fg_bg_5_5_6_endepoch50_detic.npy",)
+  TEST_CLASSIFIERS: ("/home/nicolas/hpc-home/interactron/Detic/datasets/metadata/interactron_embeddings.npy",)
+  # TEST_CLASSIFIERS: ("Detic/datasets/metadata/interactron_embeddings.npy",)
+  # TEST_NUM_CLASSES: [500, 365]
+  TEST_NUM_CLASSES: [1235,]
+  CENTERNET:
+    POST_NMS_TOPK_TEST: 50
+    POST_NMS_TOPK_TRAIN: 50
+SOLVER:
+  MAX_ITER: 10000
+  IMS_PER_BATCH: 32
+  CHECKPOINT_PERIOD: 100
+  # BASE_LR: 0.0001
+  BASE_LR: 0.00001
+  # WARMUP_ITERS: 1000
+  WARMUP_ITERS: 1000
+  WARMUP_FACTOR: 0.001
+DATASETS:
+  # TRAIN: ("lvis_v1_train+coco","imagenet_lvis-22k")
+  TRAIN: ("interactron_train",)
+  # TEST: ('oid_val_expanded', 'objects365_v2_val')
+  TEST: ("interactron_test",)
+DATALOADER:
+  # set to TrainingSampler to disable multi-dataset sampling
+  SAMPLER_TRAIN: "TrainingSampler"
+  # SAMPLER_TRAIN: "MultiDatasetSampler"
+  DATASET_RATIO: [1, 16]
+  USE_DIFF_BS_SIZE: True
+  DATASET_BS: [4, 16]
+  DATASET_INPUT_SIZE: [896, 448]
+  USE_RFS: [True, False]
+  DATASET_INPUT_SCALE: [[0.1, 2.0], [0.5, 1.5]]
+  FILTER_EMPTY_ANNOTATIONS: False
+  MULTI_DATASET_GROUPING: True
+  DATASET_ANN: ['box', 'image']
+  NUM_WORKERS: 4
+  USE_TAR_DATASET: True
+TEST:
+  EVAL_PERIOD: 500
+INPUT:
+  MIN_SIZE_TEST: 300
+  MAX_SIZE_TRAIN: 300
+# set to false to fine-tune without image labels
+WITH_IMAGE_LABELS: False

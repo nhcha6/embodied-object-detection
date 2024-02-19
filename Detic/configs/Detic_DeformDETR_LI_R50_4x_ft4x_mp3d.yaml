@@ -1,0 +1,37 @@
+_BASE_: "Base-DeformDETR_L_R50_4x.yaml"
+MODEL:
+  WEIGHTS: "models/BoxSup-DeformDETR_L_R50_4x.pth"
+# INPUT:
+#   CUSTOM_AUG: ResizeShortestEdge
+#   MIN_SIZE_TRAIN_SAMPLING: range
+#   MIN_SIZE_TRAIN: [480, 800]
+DATASETS:
+  # TRAIN: ("lvis_v1_train+coco","imagenet_lvis-22k")
+  TRAIN: ("mp3d_train_lvis",)
+  # TEST: ('oid_val_expanded', 'objects365_v2_val')
+  TEST: ("mp3d_val_lvis",)
+# SOLVER:
+#   MAX_ITER: 10000
+#   IMS_PER_BATCH: 4
+#   CHECKPOINT_PERIOD: 1000
+#   # BASE_LR: 0.0001
+#   BASE_LR: 0.00001
+#   # WARMUP_ITERS: 1000
+#   WARMUP_ITERS: 1000
+#   WARMUP_FACTOR: 0.001
+DATALOADER:
+  # set to TrainingSampler to disable multi-dataset sampling
+  SAMPLER_TRAIN: "TrainingSampler"
+  # SAMPLER_TRAIN: "MultiDatasetSampler"
+  DATASET_RATIO: [1, 4]
+  USE_DIFF_BS_SIZE: True
+  DATASET_BS: [4, 16]
+  USE_RFS: [True, False]
+  DATASET_MIN_SIZES: [[480, 800], [240, 400]]
+  DATASET_MAX_SIZES: [1333, 667]
+  FILTER_EMPTY_ANNOTATIONS: False
+  MULTI_DATASET_GROUPING: True
+  DATASET_ANN: ['box', 'image']
+TEST:
+  EVAL_PERIOD: 1000
+WITH_IMAGE_LABELS: False

@@ -1,0 +1,18 @@
+# Add New Coco Dataset and Run Model
+Add the following code to train_net.py 
+    
+    from detectron2.data.datasets import register_coco_instances
+    register_coco_instances("bdd_night", {}, "/home/nicolas/hpc-home/ssod/dataset/C2N/test_data.json", "/home/nicolas/hpc-home/ssod/dataset/C2N/test_data/")
+
+# Get CLIP text embeddings for category labels
+
+    python tools/dump_clip_features.py --ann datasets/lvis/lvis_v1_val_lvis-21k.json --out_path datasets/metadata/lvis-21k_clip_a+cname.npy
+
+# Update model config to point to new text embeddings and test dataset
+
+    TEST_CLASSIFIERS: ("datasets/metadata/bdd_clip_a+cname.npy",)
+    TEST_NUM_CLASSES: [8,]
+    TEST: ("bdd_night",)
+
+# eval/train model
+python train_net.py --num-gpus 1 --config-file /home/nicolas/hpc-home/scene_graphs/Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size_custom_dataset.yaml --eval-only MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
