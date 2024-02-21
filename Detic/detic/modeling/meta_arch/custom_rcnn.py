@@ -1012,10 +1012,10 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                     ################################ MEMORY RESET ################################
 
                     # check memory reset conditions
-                    if self.backbone.backbone_type == 'recurrent':
-                        if i==0:
-                            print('Resetting memory')
-                            self.backbone.reset_memory(memory_size = input_seq[0]['memory'].shape[0], zs_weight=self.zs_weight)
+                    # if self.backbone.backbone_type == 'recurrent':
+                    #     if i==0:
+                    #         print('Resetting memory')
+                    #         self.backbone.reset_memory(memory_size = input_seq[0]['memory'].shape[0], zs_weight=self.zs_weight)
                     
                     ################################ ADD MEMORY TO INPUT ################################
 
@@ -1033,10 +1033,10 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
 
                     ################################ MEMORY UPDATE ################################
 
-                    if self.backbone.backbone_type == 'recurrent':
-                        with autocast():
-                            # call the method of the backbone function to update the memory
-                            self.backbone.update_memory(proposals=proposals, zs_weight=self.zs_weight, frame=frame)
+                    # if self.backbone.backbone_type == 'recurrent':
+                    #     with autocast():
+                    #         # call the method of the backbone function to update the memory
+                    #         self.backbone.update_memory(proposals=proposals, zs_weight=self.zs_weight, frame=frame)
                     
                     ################################ OUTPUT UPDATE ################################
 
@@ -1055,9 +1055,9 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                     if frame['memory_reset']:
                         
                         # for recurrent model
-                        if self.backbone.backbone_type == 'recurrent':
-                            print('Resetting memory')
-                            self.backbone.reset_memory(memory_size = input_seq[0]['memory'].shape[0], zs_weight=self.zs_weight)
+                        # if self.backbone.backbone_type == 'recurrent':
+                        #     print('Resetting memory')
+                        #     self.backbone.reset_memory(memory_size = input_seq[0]['memory'].shape[0], zs_weight=self.zs_weight)
                         
                         # for the map conditioned approach
                         self.semmap_features = None
@@ -1076,9 +1076,9 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                             updated_observations = self.observations
 
                         # reset the recurrent model ever episode if peforming inference with explicit map
-                        if self.backbone.backbone_type == 'recurrent' and self.memory_type == 'explicit_map':
-                            print('Resetting memory')
-                            self.backbone.reset_memory(memory_size = input_seq[0]['memory'].shape[0], zs_weight=self.zs_weight)
+                        # if self.backbone.backbone_type == 'recurrent' and self.memory_type == 'explicit_map':
+                        #     print('Resetting memory')
+                        #     self.backbone.reset_memory(memory_size = input_seq[0]['memory'].shape[0], zs_weight=self.zs_weight)
                     
                     # update the memory every step
                     if self.test_type in ['default', 'episodic']:
@@ -1115,8 +1115,8 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                     self.update_implicit_memory(proposals, proj_indices, memory, frame, visualise=False)
 
                     # update the memory
-                    if self.backbone.backbone_type == 'recurrent':
-                        self.backbone.update_memory(proposals=proposals, zs_weight=self.zs_weight, frame=frame)
+                    # if self.backbone.backbone_type == 'recurrent':
+                    #     self.backbone.update_memory(proposals=proposals, zs_weight=self.zs_weight, frame=frame)
 
                     # use the predictions to generate a sem map
                     if self.save_semmap:

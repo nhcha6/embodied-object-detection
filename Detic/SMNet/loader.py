@@ -67,7 +67,6 @@ class SMNetDetectionLoader(data.Dataset):
         print(self.memory_path)
         print(self.data_path)
         self.test_type = test_type
-        self.envs_splits = json.load(open('embodied_data/envs_splits.json', 'r'))
         # can reduce to lower GPU memory
         self.max_sequence_length = 20
 
@@ -261,11 +260,6 @@ class SMNetDetectionLoader(data.Dataset):
 
         file = self.files[env_index]
         env  = self.envs[env_index]
-        # check which dataset we are using
-        split_i = 'replica'
-        for split in ['train', 'val', 'test']:
-            if env[0:13] in self.envs_splits['{}_envs'.format(split)]:
-                split_i = split
 
         # we want to build up a series of detection batches
         detection_batch = []
