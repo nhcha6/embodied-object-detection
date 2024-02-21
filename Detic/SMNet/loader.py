@@ -72,6 +72,7 @@ class SMNetDetectionLoader(data.Dataset):
 
         # choose which semmap to use - default of False will use the gt
         self.semmap_path = semmap_path
+        print(self.semmap_path)
 
         # map gt params
         with open('SMNet/semmap_GT_info.json', 'r') as f:
@@ -162,94 +163,6 @@ class SMNetDetectionLoader(data.Dataset):
 
         self.available_idx = list(range(len(self.files)))
 
-    def display_semmap(self, max_indices, file_name):
-
-        map_w, _, map_h = self.semmap_gt_info[file_name[0:13]]['dim']
-        map_h = math.ceil(map_h / 10)
-        map_w = math.ceil(map_w / 10)
-        max_indices = max_indices.reshape(map_h, map_w)
-
-        # define the colour pallette
-        palette = np.array([
-            [255, 0, 0],    # Red
-            [0, 255, 0],    # Green
-            [0, 0, 255],    # Blue
-            [255, 255, 0],  # Yellow
-            [0, 255, 255],  # Cyan
-            [255, 0, 255],  # Magenta
-            [128, 0, 0],    # Maroon
-            [0, 128, 0],    # Green (Dark)
-            [0, 0, 128],    # Navy
-            [128, 128, 0],  # Olive
-            [0, 128, 128],  # Teal
-            [128, 0, 128],  # Purple
-            [192, 192, 192],  # Silver
-            [128, 128, 128],  # Gray
-            [255, 165, 0],  # Orange
-            [128, 0, 0],  # Brown
-            [0, 0, 128],  # Navy (Dark)
-            [128, 0, 128],  # Purple (Dark)
-            [0, 128, 0],  # Green (Dark)
-            [0, 128, 128],  # Teal (Dark)
-            [255, 0, 0],    # Red
-            [0, 255, 0],    # Green
-            [0, 0, 255],    # Blue
-            [255, 255, 0],  # Yellow
-            [0, 255, 255],  # Cyan
-            [255, 0, 255],  # Magenta
-            [128, 0, 0],    # Maroon
-            [0, 128, 0],    # Green (Dark)
-            [0, 0, 128],    # Navy
-            [128, 128, 0],  # Olive
-            [0, 128, 128],  # Teal
-            [128, 0, 128],  # Purple
-            [192, 192, 192],  # Silver
-            [128, 128, 128],  # Gray
-            [255, 165, 0],  # Orange
-            [128, 0, 0],  # Brown
-            [0, 0, 128],  # Navy (Dark)
-            [128, 0, 128],  # Purple (Dark)
-            [0, 128, 0],  # Green (Dark)
-            [0, 128, 128],  # Teal (Dark)
-            [0, 0, 0]
-        ])
-
-        # convert to rgb to display the results
-        max_indices_colour = palette[max_indices]
-
-        # convert to 32 bit signed int
-        max_indices_colour = max_indices_colour.astype(np.uint8)
-
-        ################### DISPLAY IMAGE #########################
-
-        object_lvis = ['bed', 'stool', 'towel', 'fireplace', 'picture', 'cabinet', 'toilet', 'curtain', 'lighting', 'table', 
-            'shelving', 'mirror', 'sofa', 'cushion', 'bathtub', 'chair', 'chest_of_drawers', 'sink', 'seating', 'tv_monitor']
-
-        # Create a blank image for the legend
-        legend_height = 480
-        legend_width = 640
-        legend = np.zeros((legend_height, legend_width, 3), dtype=np.uint8)
-
-        # Define your color legend values and colors
-        legend_values = object_lvis
-        legend_colors = palette[0:len(object_lvis)]
-
-        # Calculate the width of each color block
-        block_height = legend_height // len(legend_values)
-
-        # Fill the legend with colored blocks and labels
-        for i, (value, color) in enumerate(zip(legend_values, legend_colors)):
-            start_x = i * block_height
-            end_x = (i + 1) * block_height
-            legend[start_x:end_x, :, :] = color
-            cv2.putText(legend, value, (legend_height // 2, start_x + 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-        cv2.namedWindow(file_name, cv2.WINDOW_NORMAL)
-        cv2.imshow(file_name, max_indices_colour)
-        cv2.imshow('legend', legend)
-        cv2.waitKey(0)
-
     def __len__(self):
         return len(self.available_idx)
 
@@ -315,9 +228,6 @@ class SMNetDetectionLoader(data.Dataset):
                 # display the generated semmap
                 # self.display_semmap(semmap_real-1, file)
 
-            # display the gt semmap
-            # self.display_semmap(np.array([self.smnet_class_mapping[i]-1 for i in semmap_gt]), file)
-
             # if we are running the semantic_gt or map_gt baseline, load the clip embeddings
             if self.clip_path:
                 memory = self.clip_embeddings
@@ -355,21 +265,6 @@ class SMNetDetectionLoader(data.Dataset):
                 gt_box = [gt_box[i] for i in range(len(gt_box)) if gt_class[i] in self.class_ids]
                 gt_class = [gt_class[i] for i in range(len(gt_class)) if gt_class[i] in self.class_ids]  
 
-                # display segmentation data as a test
-                # segmentation_n = segmentation_data[i]
-                # sem_vis = rgb[i].copy()
-                # for i in range(segmentation_n.shape[0]):
-                #     for j in range(segmentation_n.shape[1]):
-                #         # get the semantic label
-                #         label = segmentation_n[i,j]
-                #         # if the label is not 0 (background)
-                #         if label != 0:
-                #             # set the rgb value to the corresponding color
-                #             sem_vis[i,j] = palette[label]
-                # # display image with opencv
-                # cv2.imshow('semantic', sem_vis)
-                # cv2.waitKey(0)
-
                 # if the memory is set as semantic_gt, ready it for the dataloader
                 if self.clip_path:
                     # the proj_indeces are simply the segmentation data
@@ -389,41 +284,12 @@ class SMNetDetectionLoader(data.Dataset):
                 # except FileNotFoundError:
                 #     rgb_i = rgb[i]
 
-                # map the image features into the image frame
-                # proj_indices_i = proj_indices[i]
-                # add the memory features to the detection data
-                # memory_features = memory[proj_indices_i[:,:,0]]
-                # memory_features = np.zeros((480, 640, 256), dtype=np.float32)
-
-                # print(file_name)
-                # print(gt_boxes)
-                # print(gt_classes)
-
-                # check to see that the projection indices are aligning with the semantic map and the images
-                # semmap_new = semmap.copy()
-                # for k in range(proj_indices_i.shape[0]):
-                #     for j in range(proj_indices_i.shape[1]):
-                #         proj = proj_indices_i[k,j,:]
-                #         semmap_new[proj[1], proj[0]] = (0,255,0)
-                # plt.figure(0)
-                # plt.imshow(rgb[i])
-                # plt.figure(1)
-                # plt.imshow(semmap_new)
-                # plt.title('Topdown semantic map prediction')
-                # plt.axis('off')
-                # plt.show()
-
-                # decide how the memory will be reset - for training, we should reset before every sequence
-                # if self.split == 'train' and i == 0:
-                #     mem_reset = True
-                # # in testing, we reset the memory once for each scene
-                # else:
+                # define memory update
                 if self.test_type in ['default', 'longterm']:
                     seq_id = int(file.split('_')[-1].split('.')[0])
                     mem_reset = (seq_id == 0 and i==0)
                 elif self.test_type == 'episodic':
                     mem_reset = (i==0)
-                # mem_reset = i==0
 
                 # return values
                 detection_batch.append({'file_name': file_name[1:-1], 'sequence_name': file, 'gt_boxes': np.array(gt_box), 'gt_classes': np.array(gt_class), 'image': rgb_i, 'proj_indices': proj_indices[i], 'memory_reset': mem_reset})
@@ -434,22 +300,6 @@ class SMNetDetectionLoader(data.Dataset):
                 else:
                     detection_batch[-1]['memory_features'] = memory
                     detection_batch[-1]['observations'] = None
-
-                # else:
-                #     detection_batch.append({'file_name': file_name[1:-1], 'gt_boxes': np.array(gt_box), 'gt_classes': np.array(gt_class), 'image': rgb_i, 'memory_features': np.zeros(1,256), 'proj_indices': np.zeros(480,640,1)})
-        
-        # if we are training, we need to sample every second image from the detection batch
-        # if self.split == 'train':
-        #     # randomly generate 5 indices
-        #     indices = [i for i in range(len(detection_batch))]
-        #     indices = np.random.choice(indices, 5, replace=False)
-        #     # sort the indices
-        #     indices = sorted(indices)
-        #     # select these from the batch
-        #     detection_batch = [detection_batch[i] for i in indices]
-
-        # for input in detection_batch:
-            # print(input['file_name'])
 
         # close the h5file
         h5file.close()

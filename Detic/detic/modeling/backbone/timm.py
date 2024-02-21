@@ -71,7 +71,7 @@ class CustomRecurrentFPN(FPN):
         self.backbone_type = "recurrent"
 
         # layers for updating the memory features
-        if self.memory_type in ['implicit_memory', 'explicit_map']:
+        if self.memory_type == "implicit_memory":
             merge_norm = get_norm(self.norm, ego_feat_dim)
 
             # a series of 1x1 convolutions that use a linear projection to map memory features into the space of the ego features
@@ -139,7 +139,7 @@ class CustomRecurrentFPN(FPN):
         ########################## MERGE IN THE MEMORY FEATURES ################################
     
         # use cnn projections to include memory features
-        if self.memory_type in ['implicit_memory', 'explicit_map']:
+        if self.memory_type == 'implicit_memory':
             
             egocentric_memory = []
             for i in range(len(map_memory)):

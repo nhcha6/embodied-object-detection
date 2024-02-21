@@ -445,10 +445,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                 if self.training:
                     
                     ################################ ADD MEMORY TO INPUT ################################
-
-                    # if we are generating our own memory embeddings, we need to update the input
-                    if self.memory_type == 'explicit_map':
-                        frame['memory'], frame['proj_indices'], frame['observations'] = self.create_explicit_memory(frame, visualise=False)
                     
                     if self.memory_type == 'implicit_memory':
                         frame['memory'], frame['proj_indices'] = self.create_implicit_memory(frame)
@@ -502,10 +498,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                     # use the real time memory to perform inference
                     frame['memory'] = updated_memory
                     frame['observations'] = updated_observations
-
-                    # convert the implicit memory to explicit memory
-                    if self.memory_type == 'explicit_map':
-                        frame['memory'], frame['proj_indices'], frame['observations'] = self.create_explicit_memory(frame, visualise=False)
                     
                     # use implicit memory embeddings
                     if self.memory_type == 'implicit_memory':
@@ -529,8 +521,8 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                             # create output dir if needed
                             os.makedirs(os.path.join(self.output_dir, 'semmap'), exist_ok=True)
 
-                            print('Saving semmap')
-                            # write the explicit semmap to h5_file
+                            print('Saving memory')
+                            # write the memory to h5_file
                             with h5py.File(os.path.join(self.output_dir, 'semmap', frame['sequence_name']), 'w') as f:
                                 f.create_dataset('semmap', data=self.semmap, dtype=np.int32)
                                 f.create_dataset('impicit_memory', data=self.implicit_memory, dtype=np.float32)
@@ -783,71 +775,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
             self.implicit_memory = self.implicit_memory.cpu().numpy()
             self.observations = self.observation_count.squeeze().reshape(-1)
             self.observations = self.observations.cpu().numpy()
-
-    def create_explicit_memory(self, frame, visualise=False):
-        memory_features = torch.from_numpy(frame['memory']).cuda()
-        observations = torch.from_numpy(frame['observations']).cuda()
-        proj_indices = frame['proj_indices']
-
-        # convert the observations to the egocentric view
-        ego_observations = observations[proj_indices]
-
-        # get the dimensions of the map
-        try:
-            map_w, _, map_h = self.semmap_gt_info[frame['sequence_name'][0:13]]['dim']
-            map_h = math.ceil(map_h / self.downsample)
-            map_w = math.ceil(map_w / self.downsample)
-        except KeyError:
-            split_name = frame['sequence_name'].split('_')
-            if len(split_name) == 5:
-                house = split_name[0] + '_' + split_name[1] + '_' + split_name[2]
-                level = split_name[3]
-            elif len(split_name) == 4:
-                house = split_name[0] + '_' + split_name[1]
-                level = split_name[2]
-            else:
-                house = split_name[0] + '_' + split_name[1]
-                level = None
-            
-            if level is not None:
-                env = '_'.join((house, level))
-            else:
-                env = house
-
-            map_w, _, map_h = self.replica_map_info[env]['dim']
-
-        memory_features = memory_features.reshape(map_h, map_w, 512)
-        memory_features = memory_features.permute(2, 0, 1).unsqueeze(0)
-
-        observations  = observations.reshape(map_h, map_w, 1)
-        observations = observations.permute(2, 0, 1)
-
-        # mask the memory based on intensity of observations
-        # calculate the average feature intensity across the second dimension
-        observation_intensity = torch.mean(memory_features.abs(), dim=1)
-        observation_intensity[observations > 1] = observation_intensity[observations > 1]/observations[observations > 1]
-
-        # normalise to between 0 and 1
-        if torch.max(observation_intensity) > 0:
-            observation_intensity = (observation_intensity - torch.min(observation_intensity))/(torch.max(observation_intensity) - torch.min(observation_intensity))
-        # Display the grayscale image
-        if visualise:
-            cv2.namedWindow("Grayscale Image", cv2.WINDOW_NORMAL)
-            cv2.imshow("Grayscale Image", (255*observation_intensity.permute(1,2,0)).cpu().numpy().astype(np.uint8))
-        
-        # visualise the update
-        semmap = self.visualise_clip_image_features(memory_features, self.zs_weight, 'semmap', mask = observation_intensity, thresh=0.4, visualise=visualise)
-
-        # shift semmap indices by 1 to make void class 0
-        semmap = semmap + 1
-        # replace semmap with clip features
-        memory = self.clip_embeddings
-        # insert a row of zeros
-        memory = np.insert(memory, 0, np.zeros((1,512)), axis=0)
-        # the class indices become the project indices
-        proj_indices = semmap[proj_indices]
-
-        return memory, proj_indices, ego_observations
 
     def create_implicit_memory(self, frame, visualise=False):
         # get the current memory features
