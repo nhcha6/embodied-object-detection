@@ -33,3 +33,5 @@
 7) Copy across replica_map_info.json to have map dimension information for visualisation
 
 ## Pre-compute memory data before training
+
+## ROS Implementation
