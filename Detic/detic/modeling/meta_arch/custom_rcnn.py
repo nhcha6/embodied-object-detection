@@ -28,7 +28,6 @@ from detectron2.layers.mask_ops import paste_masks_in_image
 from torch.cuda.amp import autocast
 from ..text.text_encoder import build_text_encoder
 from ..utils import load_class_freq, get_fed_loss_inds
-from ..mem_bank_mamba.memory_bank_pix import MemoryBankPix
 
 import cv2
 

@@ -68,7 +68,9 @@ def add_detic_config(cfg):
     _C.MODEL.MEMORY_CLS_SCORE_THRESH = 0.3
     _C.MODEL.MEMORY_OBS_SCORE_THRESH = 0.4
     _C.MODEL.MAP_FEATURE_WEIGHT = 500
-    _C.MODEL.MEMORY_PATH = 'implicit_memory_res0.2'
+    _C.MODEL.TEST_DATA_PATH = 'embodied_data/mp3d_example/'
+    _C.MODEL.TRAIN_DATA_PATH = 'embodied_data/mp3d_example/'
+    _C.MODEL.MEMORY_PATH = 'embodied_data/mp3d_example/memory_data'
     _C.MODEL.TEST_TYPE = 'default' # 'default', 'episodic', 'longterm
 
     # Backbones

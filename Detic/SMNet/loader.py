@@ -54,131 +54,22 @@ def collate_smnet(batch):
     # print(batch)
 
     return batch
-
-class SMNetLoader(data.Dataset):
-    def __init__(self, cfg, split='train'):
-
-        self.split = split
-        self.root = cfg['root']
-        self.ego_downsample = cfg['ego_downsample']
-        self.feature_type = cfg['feature_type']
-
-        self.files = os.listdir(os.path.join(self.root, 'smnet_training_data_memory'))
-
-        self.files = [x for x in self.files if '_'.join(x.split('_')[:2]) in envs_splits['{}_envs'.format(split)]]
-        self.envs = [x.split('.')[0] for x in self.files]
-
-        # -- load semantic map GT
-        h5file = h5py.File(os.path.join(self.root, 'smnet_training_data_semmap.h5'), 'r')
-        self.semmap_GT = np.array(h5file['semantic_maps'])
-        h5file.close()
-        self.semmap_GT_envs =json.load(open(os.path.join(self.root,'smnet_training_data_semmap.json'), 'r'))
-        self.semmap_GT_indx = {i: self.semmap_GT_envs.index(self.envs[i] + '.h5') for i in range(len(self.files))}
-
-        # # -- load projection indices
-        # if self.ego_downsample:
-        #     h5file=h5py.File(os.path.join(self.root,'smnet_training_data_maxHIndices_every4_{}.h5'.format(split)), 'r')
-        #     self.projection_indices = np.array(h5file['indices'])
-        #     self.masks_outliers = np.array(h5file['masks_outliers'])
-        #     h5file.close()
-        #     self.projection_indices_envs = \
-        #     json.load(open(os.path.join(self.root,'smnet_training_data_maxHIndices_every4_{}.json'.format(split)), 'r'))
-        # else:
-        #     print('loading projection indices')
-        #     h5file=h5py.File(os.path.join(self.root,'smnet_training_data_maxHIndices_{}.h5'.format(split)), 'r')
-        #     self.projection_indices = np.array(h5file['indices'])
-        #     self.masks_outliers = np.array(h5file['masks_outliers'])
-        #     h5file.close()
-        #     self.projection_indices_envs = \
-        #     json.load(open(os.path.join(self.root,'smnet_training_data_maxHIndices_{}.json'.format(split)), 'r'))
-
-        # self.projection_indices_indx = {i:self.projection_indices_envs.index(self.envs[i]) for i in range(len(self.files))}
-
-        assert len(self.files) > 0
-
-        self.available_idx = list(range(len(self.files)))
-
-
-    def __len__(self):
-        return len(self.available_idx)
-
-
-    def __getitem__(self, index):
-        env_index = self.available_idx[index]
-
-        file = self.files[env_index]
-        env  = self.envs[env_index]
-
-        h5file = h5py.File(os.path.join(self.root, 'smnet_training_data', file), 'r')
-        if self.feature_type == 'encoder':
-            features = np.array(h5file['features_encoder'])
-        elif self.feature_type == 'lastlayer':
-            features = np.array(h5file['features_lastlayer'])
-        elif self.feature_type == 'scores':
-            features = np.array(h5file['features_scores'])
-        elif self.feature_type == 'softmax':
-            features = np.array(h5file['features_scores'])
-        elif self.feature_type == 'onehot':
-            features = np.array(h5file['features_scores'])
-        else:
-            raise Exception('{} feature type not supported.'.format(self.feature_type))
-        # print(str(h5file['detection_data'][0].decode()))
-        h5file.close()
-
-        features = torch.from_numpy(features).float()
-        if self.feature_type == 'softmax':
-            features = torch.nn.functional.softmax(features, dim=1)
-
-
-        if self.feature_type == 'onehot':
-            features = features.permute(0,2,3,1)
-            num_classes = features.size(3)
-            labels = features.max(3)[1]
-            features = F.one_hot(labels, num_classes=num_classes)
-            features = features.bool()
-            features = features.permute(0,3,1,2)
-        else:
-            features = features.half()
-
-        # projection_index = self.projection_indices_indx[env_index]
-        # proj_indices     = self.projection_indices[projection_index]
-        # masks_outliers   = self.masks_outliers[projection_index]
-        # print(proj_indices)
-
-        h5file = h5py.File(os.path.join(self.root, 'smnet_training_data_maxHIndices', file), 'r')
-        proj_indices = np.array(h5file['indices'])
-        proj_indices = proj_indices[np.newaxis, ...]
-        masks_outliers = np.array(h5file['masks_outliers'])
-        masks_outliers = masks_outliers[np.newaxis, ...]
-
-        proj_indices = torch.from_numpy(proj_indices).long()
-        proj_indices = proj_indices.squeeze(0)
-        masks_outliers = torch.from_numpy(masks_outliers).bool()
-        masks_outliers = masks_outliers.squeeze(0)
-
-        masks_inliers = ~masks_outliers
-
-        semmap_index = self.semmap_GT_indx[env_index]
-        semmap = self.semmap_GT[semmap_index]
-        semmap = torch.from_numpy(semmap).long()
-
-        return (features, masks_inliers, proj_indices, semmap, file)
     
 class SMNetDetectionLoader(data.Dataset):
-    def __init__(self, cfg, split='train', img_root = '../Matterport/processed_data/', memory_path = 'implicit_memory_res0.2', test_type = 'default', clip_path = None, memory_type = '', semmap_path = 'gt'):
+    def __init__(self, data_path = 'sensor_data', test_type = 'default', clip_path = None, memory_type = '', semmap_path = 'gt'):
 
-        self.split = split
-        self.root = cfg['root']
-        self.ego_downsample = cfg['ego_downsample']
-        self.feature_type = cfg['feature_type']
-        self.image_root = img_root
         self.clip_path = clip_path
         self.memory_type = memory_type
         # implicit_memory_res0.1, smnet_training_data_memory_2, implicit_memory_noise0.1_res0.2, replica_memory_res0.2
-        self.memory_path = memory_path
+        self.memory_path = os.path.join(data_path, 'memory_data')
+        self.data_path = os.path.join(data_path, 'sensor_data')
+        self.image_root = os.path.join(data_path, 'JPEGImages')
         print(self.memory_path)
+        print(self.data_path)
         self.test_type = test_type
-        self.envs_splits = json.load(open('../Semantic-MapNet/data/envs_splits.json', 'r'))
+        self.envs_splits = json.load(open('embodied_data/envs_splits.json', 'r'))
+        # can reduce to lower GPU memory
+        self.max_sequence_length = 20
 
         # choose which semmap to use - default of False will use the gt
         self.semmap_path = semmap_path
@@ -187,37 +78,18 @@ class SMNetDetectionLoader(data.Dataset):
         with open('SMNet/semmap_GT_info.json', 'r') as f:
             self.semmap_gt_info = json.load(f)
 
-        # option to the sequence length due to reduce gpu memory
-        if os.getcwd() == '/home/nicolas/hpc-home/allocentric_memory/Detic' and self.split=='train':
-            self.max_sequence_length = 15
-        else: 
-            self.max_sequence_length = 20
-
-        if split in ['train', 'val', 'test']:
-            self.root += 'training/'
-            self.data_path = 'smnet_training_data_2'
-        elif 'replica' in split:
-            self.root += 'training/'
-            self.data_path = 'replica_data'
-            self.memory_path = 'replica_memory_res0.2'
+        # if split in ['train', 'val', 'test']:
+        #     self.root += 'training/'
+        #     self.data_path = 'smnet_training_data_2'
+        # elif 'replica' in split:
+        #     self.root += 'training/'
+        #     self.data_path = 'replica_data'
+        #     self.memory_path = 'replica_memory_res0.2'
         # elif split == 'test':
         #     self.root += 'test_data/'
         #     self.data_path = 'smnet_test_data'
 
-        self.files = os.listdir(os.path.join(self.root, self.memory_path))
-
-        self.files_test = [x for x in self.files if '_'.join(x.split('_')[:2]) in self.envs_splits['{}_envs'.format('test')]]
-        self.files_val = [x for x in self.files if '_'.join(x.split('_')[:2]) in self.envs_splits['{}_envs'.format('val')]]
-        self.files_train = [x for x in self.files if '_'.join(x.split('_')[:2]) in self.envs_splits['{}_envs'.format('train')]]
-
-        # append the validation set to the testing set
-        if split == 'test':
-            self.files = self.files_test #+ self.files_val
-        elif split == 'train':
-            self.files = self.files_train
-        elif split == 'val':
-            self.files = self.files_val
-
+        self.files = os.listdir(self.memory_path)
 
         # sort the files
         def custom_sort(string):
@@ -252,7 +124,7 @@ class SMNetDetectionLoader(data.Dataset):
         # self.semmap_GT_indx = {i: self.semmap_GT_envs.index(self.envs[i] + '.h5') for i in range(len(self.files))}
         
         # info for map projection
-        self.semmap_info = json.load(open(f'{self.root}../semmap_GT_info.json', 'r'))
+        self.semmap_info = json.load(open('SMNet/semmap_GT_info.json', 'r'))
         self.resolution = 0.02
 
         # select which classes are to be included for detections
@@ -420,7 +292,7 @@ class SMNetDetectionLoader(data.Dataset):
 
             # get the spatial memory for the current environment
             try:
-                h5file = h5py.File(os.path.join(self.root, self.memory_path, file), 'r')
+                h5file = h5py.File(os.path.join(self.memory_path, file), 'r')
                 memory = np.array(h5file['memory_features'])
                 semmap_gt = np.array(h5file['semmap_gt'])
                 proj_indices = np.array(h5file['proj_indices'])
@@ -468,7 +340,7 @@ class SMNetDetectionLoader(data.Dataset):
                         memory = memory[self.smnet_class_mapping]
                         proj_indices = semmap_gt[proj_indices]
 
-            h5file = h5py.File(os.path.join(self.root, self.data_path, file), 'r')
+            h5file = h5py.File(os.path.join(self.data_path, file), 'r')
 
             # build the object detection data required to train detic models
             rgb = np.array(h5file['rgb'])
@@ -515,7 +387,7 @@ class SMNetDetectionLoader(data.Dataset):
                     #     proj_indices[i] = semmap_gt[proj_indices[i]]
                 
                 # manually import the image, same as done in original DETIC dataloader
-                with PathManager.open(os.path.join(self.image_root, split_i, 'JPEGImages', file_name[1:-1]), "rb") as f:
+                with PathManager.open(os.path.join(self.image_root, file_name[1:-1]), "rb") as f:
                     rgb_i = Image.open(f)
                     # work around this bug: https://github.com/python-pillow/Pillow/issues/3973
                     rgb_i = _apply_exif_orientation(rgb_i)
@@ -589,43 +461,5 @@ class SMNetDetectionLoader(data.Dataset):
         h5file.close()
 
         return detection_batch
-        
-        # features = torch.from_numpy(features).float()
-        # if self.feature_type == 'softmax':
-        #     features = torch.nn.functional.softmax(features, dim=1)
 
-
-        # if self.feature_type == 'onehot':
-        #     features = features.permute(0,2,3,1)
-        #     num_classes = features.size(3)
-        #     labels = features.max(3)[1]
-        #     features = F.one_hot(labels, num_classes=num_classes)
-        #     features = features.bool()
-        #     features = features.permute(0,3,1,2)
-        # else:
-        #     features = features.half()
-
-        # # projection_index = self.projection_indices_indx[env_index]
-        # # proj_indices     = self.projection_indices[projection_index]
-        # # masks_outliers   = self.masks_outliers[projection_index]
-        # # print(proj_indices)
-
-        # h5file = h5py.File(os.path.join(self.root, 'smnet_training_data_maxHIndices', file), 'r')
-        # proj_indices = np.array(h5file['indices'])
-        # proj_indices = proj_indices[np.newaxis, ...]
-        # masks_outliers = np.array(h5file['masks_outliers'])
-        # masks_outliers = masks_outliers[np.newaxis, ...]
-
-        # proj_indices = torch.from_numpy(proj_indices).long()
-        # proj_indices = proj_indices.squeeze(0)
-        # masks_outliers = torch.from_numpy(masks_outliers).bool()
-        # masks_outliers = masks_outliers.squeeze(0)
-
-        # masks_inliers = ~masks_outliers
-
-        # semmap_index = self.semmap_GT_indx[env_index]
-        # semmap = self.semmap_GT[semmap_index]
-        # semmap = torch.from_numpy(semmap).long()
-
-        # return (features, masks_inliers, proj_indices, semmap, file)
 

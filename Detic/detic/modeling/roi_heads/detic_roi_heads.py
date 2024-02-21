@@ -25,7 +25,6 @@ from .detic_fast_rcnn import DeticFastRCNNOutputLayers
 from ..debug import debug_second_stage
 
 from torch.cuda.amp import autocast
-from ..mem_bank_mamba.memory_bank_ins import MemoryBankIns
 
 @ROI_HEADS_REGISTRY.register()
 class DeticCascadeROIHeads(CascadeROIHeads):

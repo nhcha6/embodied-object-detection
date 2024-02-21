@@ -1,0 +1,67 @@
+_BASE_: "Base-C2_L_R5021k_640b64_4x_recurrent.yaml"
+MODEL:
+  DYNAMIC_CLASSIFIER: False
+  ROI_BOX_HEAD:
+    USE_ZEROSHOT_CLS: True
+    IMAGE_LABEL_LOSS: 'max_size'
+    # ZEROSHOT_WEIGHT_PATH: 'datasets/metadata/lvis-21k_clip_a+cname.npy'
+    ZEROSHOT_WEIGHT_PATH: "datasets/metadata/mp3d_clip.npy"
+    USE_FED_LOSS: False # Federated loss is enabled when DYNAMIC_CLASSIFIER is on
+    ADD_FEATURE_TO_PROP: True
+  ROI_HEADS:
+    # NUM_CLASSES: 22047
+    NUM_CLASSES: 20
+  # WEIGHTS: "output/Detic/BoxSup-C2_LCOCO_CLIP_R5021k_640b64_4x/model_final.pth"
+  RESET_CLS_TESTS: True
+  TEST_CLASSIFIERS: ("datasets/metadata/mp3d_clip.npy",)
+  TEST_NUM_CLASSES: [20,]
+  # new params for merging map and image features
+  MAP_MERGE_TYPE: "implicit_memory" # gru_precomputed, cnn_precomputed, image_features_only, cnn_precomputed_bottom, semantic_gt, map_gt, implicit_memory
+  MAP_FEAT_FUSION: "sum" # sum, rnn, mem_only, image_only, ave
+  TEST_SAVE_SEMMAP: False
+  FREEZE_BACKBONE: False
+  UNFROZEN_LAYERS: ['roi', 'map_merge', 'proposal_generator']
+  SEMMAP_PATH: 'output/mp3d_13_build_semmap/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent_image_only_sum_pretrained/semmap'    
+  TEST_DATA_PATH: 'embodied_data/mp3d_example/'
+  TRAIN_DATA_PATH: 'embodied_data/mp3d_example/'
+  TEST_TYPE: 'default'
+SOLVER:
+  MAX_ITER: 10000
+  IMS_PER_BATCH: 2
+  CHECKPOINT_PERIOD: 1000
+  # BASE_LR: 0.0001
+  BASE_LR: 0.00001
+  # WARMUP_ITERS: 1000
+  WARMUP_ITERS: 1000
+  WARMUP_FACTOR: 0.001
+  CUSTOM_MULTIPLIER: 10.0
+  CUSTOM_MULTIPLIER_NAME: ["map_merge"]
+DATASETS:
+  # TRAIN: ("lvis_v1_train+coco","imagenet_lvis-22k")
+  TRAIN: ("mp3d_train",)
+  # TEST: ('oid_val_expanded', 'objects365_v2_val')
+  TEST: ("mp3d_example",)
+DATALOADER:
+  # set to TrainingSampler to disable multi-dataset sampling
+  # SAMPLER_TRAIN: "TrainingSampler"
+  # SAMPLER_TRAIN: "MultiDatasetSampler"
+  SAMPLER_TRAIN: "MP3DLoader"
+  DATASET_RATIO: [1, 4]
+  USE_DIFF_BS_SIZE: True
+  DATASET_BS: [4, 16]
+  DATASET_INPUT_SIZE: [640, 320]
+  USE_RFS: [True, False]
+  DATASET_INPUT_SCALE: [[0.1, 2.0], [0.5, 1.5]]
+  FILTER_EMPTY_ANNOTATIONS: False
+  MULTI_DATASET_GROUPING: True
+  DATASET_ANN: ['box', 'image']
+  NUM_WORKERS: 8
+  USE_TAR_DATASET: True
+INPUT:
+  FORMAT: RGB
+  CUSTOM_AUG: ResizeShortestEdge
+  MAX_SIZE_TRAIN: 640
+  MAX_SIZE_TEST: 640
+TEST:
+  EVAL_PERIOD: 1000
+WITH_IMAGE_LABELS: False

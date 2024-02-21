@@ -76,24 +76,9 @@ from pycocotools.coco import COCO
 import json
 # from torchviz import make_dot
 
-# ROOT_DIR = '/home/nicolas/hpc-home/'
-# ROOT_DIR = '/home/n11223243/'
-ROOT_DIR = os.getcwd().split('allocentric_memory')[0]
-
 # register new datasets
 from detectron2.data.datasets import register_coco_instances
-register_coco_instances("bdd_night", {}, f"{ROOT_DIR}ssod/dataset/C2N/test_data.json", f"{ROOT_DIR}ssod/dataset/C2N/test_data/")
-register_coco_instances("bdd_daytime", {}, f"{ROOT_DIR}ssod/dataset/C2B/test_data.json", f"{ROOT_DIR}ssod/dataset/C2B/test_data/")
-register_coco_instances("interactron_test", {}, f"{ROOT_DIR}interactron/data/interactron/test/coco_annotations.json", f"{ROOT_DIR}interactron/data/interactron/test/")
-register_coco_instances("interactron_train", {}, f"{ROOT_DIR}interactron/data/interactron/train/coco_annotations.json", f"{ROOT_DIR}interactron/data/interactron/train/")
-
-# mpd3 datasets
-register_coco_instances("mp3d_val", {}, f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/val/annotations_reduced.json", f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/val")
-# register_coco_instances("mp3d_val", {}, f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/val/mp3d_val.json", f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/val/JPEGImages")
-register_coco_instances("mp3d_val_lvis", {}, f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/val/annotations_lvis.json", f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/val")
-register_coco_instances("mp3d_train", {}, f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/train/annotations_reduced.json", f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/train")
-register_coco_instances("mp3d_train_lvis", {}, f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/train/annotations_lvis.json", f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/train")
-register_coco_instances("mp3d_test", {}, f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/test/annotations_reduced.json", f"{ROOT_DIR}allocentric_memory/Matterport/processed_data/test")
+register_coco_instances("mp3d_example", {}, "embodied_data/mp3d_example/annotations.json", "embodied_data/mp3d_example")
 
 logger = logging.getLogger("detectron2")
 
@@ -406,9 +391,6 @@ def do_test(cfg, model):
 
         # build mp3d sequence dataloader
         if cfg.DATALOADER.SAMPLER_TRAIN == 'MP3DLoader':
-            # load the SMNet config
-            with open(cfg.DATASETS.SMNET_CFG) as fp:
-                cfg_smnet = yaml.safe_load(fp)
             world_size = 1
 
             # Setup Dataloader
@@ -416,13 +398,13 @@ def do_test(cfg, model):
             # semantic_gt = True if cfg.MODEL.MEMORY_TYPE == 'semantic_gt' else False
             memory_type = cfg.MODEL.MEMORY_TYPE
             semmap_path = '' # cfg.MODEL.SEMMAP_PATH
-            v_loader = SMNetDetectionLoader(cfg_smnet["data"], split=cfg_smnet['data']['val_split'], memory_path=cfg.MODEL.MEMORY_PATH, test_type=cfg.MODEL.TEST_TYPE, clip_path = clip_path, memory_type=memory_type, semmap_path=semmap_path)
+            v_loader = SMNetDetectionLoader(data_path=cfg.MODEL.TRAIN_DATA_PATH, test_type=cfg.MODEL.TEST_TYPE, clip_path = clip_path, memory_type=memory_type, semmap_path=semmap_path)
             v_sampler = InferenceSampler(len(v_loader))
 
             data_loader = DataLoader(
                 v_loader,
                 batch_size=1 // world_size,
-                num_workers=cfg_smnet["training"]["n_workers"],
+                num_workers=2,
                 drop_last=True,
                 pin_memory=True,
                 sampler=v_sampler,
@@ -567,9 +549,6 @@ def do_train(cfg, model, resume=False):
     if cfg.DATALOADER.SAMPLER_TRAIN in ['TrainingSampler', 'RepeatFactorTrainingSampler']:
         data_loader = build_detection_train_loader(cfg, mapper=mapper)
     elif cfg.DATALOADER.SAMPLER_TRAIN == 'MP3DLoader':
-        # load the SMNet config
-        with open(cfg.DATASETS.SMNET_CFG) as fp:
-            cfg_smnet = yaml.safe_load(fp)
         # world size = 1
         world_size = 1
         # Setup Dataloader
@@ -577,7 +556,7 @@ def do_train(cfg, model, resume=False):
         # semantic_gt = True if cfg.MODEL.MEMORY_TYPE == 'semantic_gt' else False
         memory_type = cfg.MODEL.MEMORY_TYPE
         semmap_path = cfg.MODEL.SEMMAP_PATH
-        t_loader = SMNetDetectionLoader(cfg_smnet["data"], split=cfg_smnet['data']['train_split'], memory_path=cfg.MODEL.MEMORY_PATH, clip_path = clip_path, memory_type=memory_type, semmap_path=semmap_path)
+        t_loader = SMNetDetectionLoader(data_path=cfg.MODEL.TRAIN_DATA_PATH, clip_path = clip_path, memory_type=memory_type, semmap_path=semmap_path)
         t_sampler = TrainingSampler(len(t_loader))
 
         # t_sampler = DistributedSampler(t_loader)
@@ -585,7 +564,7 @@ def do_train(cfg, model, resume=False):
         data_loader = DataLoader(
             t_loader,
             batch_size=cfg.SOLVER.IMS_PER_BATCH // world_size,
-            num_workers=cfg_smnet["training"]["n_workers"],
+            num_workers=2,
             drop_last=True,
             pin_memory=True,
             sampler=t_sampler,
