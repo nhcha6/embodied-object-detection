@@ -141,8 +141,6 @@ class CustomRecurrentFPN(FPN):
         # use cnn projections to include memory features
         if self.memory_type in ['implicit_memory', 'explicit_map']:
             
-            print('enhancing features with map based memory')
-            start = time.time()
             egocentric_memory = []
             for i in range(len(map_memory)):
                 # project memory features into the image frame
@@ -192,8 +190,6 @@ class CustomRecurrentFPN(FPN):
             
             # update the results
             results = new_results
-
-            # start = time.time()
 
         else:
             # print('continuing with image features only')

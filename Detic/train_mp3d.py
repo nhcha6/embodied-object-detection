@@ -154,11 +154,11 @@ def mp3d_inference_on_dataset(
 
             inputs = inputs[0]
 
-            print(inputs[0]['image'].shape)
-            print(inputs[0]['proj_indices'].shape)
-            print(inputs[0]['memory'].shape)
-            print(inputs[0]['memory_reset'])
-            print(inputs[0]['observations'])
+            # print(inputs[0]['image'].shape)
+            # print(inputs[0]['proj_indices'].shape)
+            # print(inputs[0]['memory'].shape)
+            # print(inputs[0]['memory_reset'])
+            # print(inputs[0]['observations'])
 
             # reset the scene_specific memory
             if inputs[0]['memory_reset']:

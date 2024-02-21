@@ -14,6 +14,7 @@ import random
 import math
 import h5py
 import os
+import time
 
 from detectron2.modeling.meta_arch.build import META_ARCH_REGISTRY
 from detectron2.modeling.meta_arch.rcnn import GeneralizedRCNN
@@ -328,526 +329,6 @@ class CustomRCNN(GeneralizedRCNN):
             (self.num_classes + 1,), len(inds))
         cls_id_map[inds] = torch.arange(len(inds), device=cls_id_map.device)
         return inds, cls_id_map
-    
-@META_ARCH_REGISTRY.register()
-class CustomRCNNMamba(GeneralizedRCNN):
-    '''
-    Add image labels
-    '''
-    @configurable
-    def __init__(
-        self, 
-        with_image_labels = False,
-        dataset_loss_weight = [],
-        fp16 = False,
-        sync_caption_batch = False,
-        roi_head_name = '',
-        cap_batch_ratio = 4,
-        with_caption = False,
-        dynamic_classifier = False,
-        **kwargs):
-        """
-        """
-        self.with_image_labels = with_image_labels
-        self.dataset_loss_weight = dataset_loss_weight
-        self.fp16 = fp16
-        self.with_caption = with_caption
-        self.sync_caption_batch = sync_caption_batch
-        self.roi_head_name = roi_head_name
-        self.cap_batch_ratio = cap_batch_ratio
-        self.dynamic_classifier = dynamic_classifier
-        self.return_proposal = True
-
-        # pop new params
-        self.map_conditioned = kwargs.pop('map_conditioned')
-        self.cfg = kwargs.pop('cfg')
-
-        if self.dynamic_classifier:
-            self.freq_weight = kwargs.pop('freq_weight')
-            self.num_classes = kwargs.pop('num_classes')
-            self.num_sample_cats = kwargs.pop('num_sample_cats')
-
-        super().__init__(**kwargs)
-        assert self.proposal_generator is not None
-        if self.with_caption:
-            assert not self.dynamic_classifier
-            self.text_encoder = build_text_encoder(pretrain=True)
-            for v in self.text_encoder.parameters():
-                v.requires_grad = False
-
-        # memory update params
-        self.pixel_mem_in_feat = self.cfg.MODEL.ROI_HEADS.IN_FEATURES
-        self.use_pix_mem = self.cfg.MODEL.VID.MAMBA.PIX_MEM.ENABLE
-        self.use_ins_mem = self.cfg.MODEL.VID.MAMBA.INS_MEM.ENABLE
-
-        # different memory banks for each backbone feature
-        self.mem_pix_1 = MemoryBankPix(self.cfg)
-        self.mem_pix_2 = MemoryBankPix(self.cfg)
-        self.mem_pix_3 = MemoryBankPix(self.cfg)
-        self.mem_pix_list = [self.mem_pix_1, self.mem_pix_2, self.mem_pix_3]
-        self.pix_mem = {}
-        if self.use_pix_mem:
-            for i, feat in enumerate(self.pixel_mem_in_feat):
-                self.pix_mem[feat] = self.mem_pix_list[i]
-
-        # simple feature bank for training
-        self.pixel_training_memory = {}
-
-    @classmethod
-    def from_config(cls, cfg):
-        ret = super().from_config(cfg)
-        ret.update({
-            'with_image_labels': cfg.WITH_IMAGE_LABELS,
-            'dataset_loss_weight': cfg.MODEL.DATASET_LOSS_WEIGHT,
-            'fp16': cfg.FP16,
-            'with_caption': cfg.MODEL.WITH_CAPTION,
-            'sync_caption_batch': cfg.MODEL.SYNC_CAPTION_BATCH,
-            'dynamic_classifier': cfg.MODEL.DYNAMIC_CLASSIFIER,
-            'roi_head_name': cfg.MODEL.ROI_HEADS.NAME,
-            'cap_batch_ratio': cfg.MODEL.CAP_BATCH_RATIO,
-        })
-
-        # new params for mamba
-        ret['map_conditioned'] = cfg.MODEL.TIMM.BASE_NAME == 'resnet50_in21k_map'
-        ret['cfg'] = cfg
-
-        if ret['dynamic_classifier']:
-            ret['freq_weight'] = load_class_freq(
-                cfg.MODEL.ROI_BOX_HEAD.CAT_FREQ_PATH,
-                cfg.MODEL.ROI_BOX_HEAD.FED_LOSS_FREQ_WEIGHT)
-            ret['num_classes'] = cfg.MODEL.ROI_HEADS.NUM_CLASSES
-            ret['num_sample_cats'] = cfg.MODEL.NUM_SAMPLE_CATS
-        
-        return ret
-
-    def _init_memory(self, images, size):
-        
-        if self.use_pix_mem:
-            for feat, mem in self.pix_mem.items():
-                mem.reset()
-        if self.use_ins_mem:
-            for stage in range(3):
-                self.roi_heads.ins_mem[stage].reset()
-
-        # init features in memory bank
-        if self.use_ins_mem or self.use_pix_mem:
-            # for _ in range(self.initial_frame_num):
-            #     self.end_id = min(self.end_id + 1, self.seg_len - 1)
-            #     if "shuffled_index" in infos.keys():
-            #         # shuffle test
-            #         end_filename = infos["pattern"] % int(
-            #             infos["shuffled_index"][self.end_id]
-            #         )
-            #     else:
-            #         end_filename = infos["pattern"] % self.end_id
-            #     end_image = Image.open(infos["img_dir"] % end_filename).convert(
-            #         "RGB"
-            #     )
-
-            #     end_image = infos["transforms"](end_image)
-            #     if isinstance(end_image, tuple):
-            #         end_image = end_image[0]
-            #     img = end_image.view(1, *end_image.shape).to(self.device)
-
-            #     features = self.backbone(img)[0]
-            #     features_list.append(features)
-            #     proposals, _ = self.rpn(imgs, (features,), version="key")
-            #     proposals_list.append(proposals)
-
-            features = self.backbone(images.tensor)
-            proposals, _ = self.proposal_generator(images, features, None)
-
-        if self.use_ins_mem:
-            # for _feat, _proposal in zip(features_list, proposals_list):
-            #     _proposal = [_proposal[0][: self.num_proposals_ref]]
-            #     _proposal_feat = self.roi_heads.box.feature_extractor(
-            #         _feat, _proposal, pre_calculate=True
-            #     )
-            #     self.roi_heads.box.feature_extractor.ins_mem.update(_proposal_feat)
-            self.roi_heads(images, features, proposals, update_memory=True)
-
-        if self.use_pix_mem:
-            results, proposals = self.roi_heads(images, features, proposals)
-
-            # for _feat, _proposal in zip(features_list, proposals_list):
-            # if not self.use_ins_mem:
-                # _, detections, _ = self.roi_heads((_feat,), _proposal, None)
-
-            # else:
-            #     proposals_feat = self.roi_heads.box.feature_extractor(
-            #         _feat, _proposal, pre_calculate=True
-            #     )
-            #     proposals_feat_ref = (
-            #         self.roi_heads.box.feature_extractor.ins_mem.sample()
-            #     )
-            #     # no memory
-            #     if len(proposals_feat_ref) == 0:
-            #         proposals_feat_ref = proposals_feat
-            #     proposals_list = [_proposal, proposals_feat, proposals_feat_ref]
-            #     _, detections, _ = self.roi_heads(None, proposals_list, None)
-            
-            # update the features
-            for feat in self.pixel_mem_in_feat:
-                self.pix_mem[feat].write_operation(features[feat], results, size)
-
-
-    def inference(
-        self,
-        batched_inputs: Tuple[Dict[str, torch.Tensor]],
-        detected_instances: Optional[List[Instances]] = None,
-        do_postprocess: bool = True,
-    ):
-        assert not self.training
-        assert detected_instances is None
-
-        images = self.preprocess_image(batched_inputs)
-        size = (batched_inputs[0]['width'], batched_inputs[0]['height'])
-
-        if batched_inputs[0]['memory_reset']:
-            print('Resetting Memory')
-            self._init_memory(images, size)
-
-        if torch.cuda.current_device() == 0:
-            if self.use_pix_mem:
-                print('Pix Memory Size: ', self.mem_pix_1.__len__(), self.mem_pix_2.__len__(), self.mem_pix_3.__len__())
-            
-            if self.use_ins_mem:
-                print('Ins Memory Size: ', self.roi_heads.ins_mem[0].__len__(), self.roi_heads.ins_mem[1].__len__(), self.roi_heads.ins_mem[2].__len__())
-        
-        # display the image
-        # for i in range(len(batched_inputs)):
-        #     image = images.tensor[i].permute(1, 2, 0).cpu().numpy()
-        #     print(images.tensor[i])
-        #     print(images.tensor.dtype)
-        #     print(batched_inputs[i]['image'])
-        #     print(batched_inputs[i]['image'].dtype)
-        #     cv2.imshow('image', image)
-        #     cv2.imshow('raw_image', batched_inputs[i]['image'].permute(1, 2, 0).cpu().numpy())
-        #     cv2.waitKey(0)
-
-        features = self.backbone(images.tensor)
-
-        # enhance with pixel level memory
-        if self.use_pix_mem:
-            # update the backbone features
-            for feat in features.keys():
-                if feat in self.pixel_mem_in_feat:
-                    feat_i = features[feat]
-                    # enhance the pixels of the key frame
-                    features[feat] = self.pix_mem[feat](feat_i)
-
-        proposals, _ = self.proposal_generator(images, features, None)
-        results, proposals = self.roi_heads(images, features, proposals)
-
-        # update pixel memory bank
-        if self.use_pix_mem:
-            for feat in self.pixel_mem_in_feat:
-                self.pix_mem[feat].write_operation(features[feat], results, size)
-            
-        # add the segmentations to the proposals
-        mask = self.roi_heads.forward_mask_memory(features, proposals)
-        mask_rcnn_inference(mask, proposals)
-
-        if do_postprocess:
-            assert not torch.jit.is_scripting(), \
-                "Scripting is not supported for postprocess."
-            return proposals, CustomRCNN._postprocess(
-                results, batched_inputs, images.image_sizes)
-        else:
-            return proposals, results
-
-    # forward model for prcossing a sequence of frames
-    def forward(self, batched_inputs: List[List[Dict[str, torch.Tensor]]]):
-        """
-        Sequential pass of model, where the memory is iteratively returned and passed to the model with the next frame
-        """
-        # self.downsample to every second input for each input sequences
-        if self.training:
-            batched_inputs = [input_seq[::3] for input_seq in batched_inputs]
-
-        batch_output = None
-        # iterate over the batch of sequences
-        for input_seq in batched_inputs:
-
-            print(input_seq[0]['sequence_name'])
-
-            if self.training:
-
-                # reset memory every sequence
-                input_seq[0]['memory_reset'] = True
-
-                for frame in input_seq:
-
-                    # generate output    
-                    proposals, output = self.forward_model([frame]) 
-
-                    # merge the output batch
-                    if batch_output:
-                        # merge each loss term
-                        for key in output.keys():
-                            batch_output[key] += output[key]
-                    else:
-                        batch_output = output
-
-            else:
-
-                # reset memory every sequence
-                # input_seq[0]['memory_reset'] = True
-
-                for frame in input_seq:
-
-                    # generate output    
-                    proposals, output = self.inference([frame])
-
-                    # merge the output batch
-                    if batch_output:
-                        # extend the list of instances
-                        batch_output.extend(output)
-                    else:
-                        batch_output = output
-            
-        # calculate the average loss
-        if self.training:
-            for key in batch_output.keys():
-                batch_output[key] /= len(batched_inputs)*len(batched_inputs[0])
-
-        return batch_output
-    
-    # this function instea separates the sequence into individual images to be recurrently procressed.
-    # def forward(self, batched_inputs: List[List[Dict[str, torch.Tensor]]]):
-    #     """
-    #     Sequential pass of model, where the memory is iteratively returned and passed to the model with the next frame
-    #     """
-    #     batch_output = None
-    #     # iterate over the batch of sequences
-    #     for input_seq in batched_inputs:
-
-    #         # iterate over the sequence
-    #         for i, frame in enumerate(input_seq):
-
-    #             if self.training:
-
-    #                 # generate output    
-    #                 proposals, output = self.forward_model([frame]) 
-
-    #                 # merge the output batch
-    #                 if batch_output:
-    #                     # merge each loss term
-    #                     for key in output.keys():
-    #                         batch_output[key] += output[key]
-    #                 else:
-    #                     batch_output = output
-
-    #             else:
-
-    #                 # generate output    
-    #                 proposals, output = self.inference([frame])
-
-    #                 # merge the output batch
-    #                 if batch_output:
-    #                     # extend the list of instances
-    #                     batch_output.extend(output)
-    #                 else:
-    #                     batch_output = output
-            
-    #     # calculate the average loss
-    #     if self.training:
-    #         for key in batch_output.keys():
-    #             batch_output[key] /= (len(batched_inputs)*len(batched_inputs[0]))
-
-    #     return batch_output
-
-    def forward_model(self, batched_inputs: List[Dict[str, torch.Tensor]]):
-        """
-        Add ann_type
-        Ignore proposal loss when training with image labels
-        """
-        # if not self.training:
-        #     return self.inference(batched_inputs)
-
-        # select random keyframe
-        # keyframe_i = random.randint(2, len(batched_inputs)-1)
-
-        # update batched_inputs
-        # batched_inputs = [batched_inputs[0], batched_inputs[1], batched_inputs[keyframe_i]]
-
-        images = self.preprocess_image(batched_inputs)
-
-        # batched_input should just contain the keyframe for model update
-        # batched_inputs = [batched_inputs[-1]]
-
-        if batched_inputs[0]['memory_reset']:
-            print('Resetting Memory')
-            # print(torch.cuda.current_device())
-            self.pixel_training_memory = {}
-            self.roi_heads.instance_training_memory = {}
-
-        ann_type = 'box'
-        gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
-        if self.with_image_labels:
-            for inst, x in zip(gt_instances, batched_inputs):
-                inst._ann_type = x['ann_type']
-                inst._pos_category_ids = x['pos_category_ids']
-            ann_types = [x['ann_type'] for x in batched_inputs]
-            assert len(set(ann_types)) == 1
-            ann_type = ann_types[0]
-            if ann_type in ['prop', 'proptag']:
-                for t in gt_instances:
-                    t.gt_classes *= 0
-        
-        if self.fp16: # TODO (zhouxy): improve
-            with autocast():
-                features = self.backbone(images.tensor.half())
-            features = {k: v.float() for k, v in features.items()}
-        else:
-            with autocast():
-                features = self.backbone(images.tensor)
-
-        # append the features to the training memory
-        if len(self.pixel_training_memory) == 0:
-            for k, v in features.items():
-                if k in features.keys():
-                    self.pixel_training_memory[k] = v.clone().detach()
-        else:
-            for k, v in features.items():
-                if k in features.keys():
-                    detached_features = v.clone().detach()
-                    self.pixel_training_memory[k] = torch.cat([self.pixel_training_memory[k], detached_features], dim=0)
-
-        # [key, ref_1, ref_2, ..., ref_k]
-        if self.use_pix_mem:
-            # update the backbone features
-            for feat in features.keys():
-                if feat in self.pixel_mem_in_feat:
-                    # feats_list = list(torch.chunk(features[feat], 3, dim=0))
-                    
-                    # use first 2 ref images as pixel memory
-                    # pix_mem = torch.cat(feats_list[0:2], dim=0)
-                    pix_mem = self.pixel_training_memory[feat]
-
-                    # randomly sample 2 past images
-                    # pix_mem = pix_mem[torch.randperm(pix_mem.size()[0])[:2]]
-                    
-                    n,c,w,h = pix_mem.shape
-                    pix_mem = pix_mem.permute(1, 0, 2, 3).reshape(c, -1).transpose(1, 0)
-                    # change to randperm
-                    pix_mem = pix_mem[torch.randperm(w*h*n)[0:w*h]]
-                    pix_mem = pix_mem.reshape(1, w, h, c).permute(0, 3, 1, 2)
-
-                    # enhance the pixels of the key frame
-                    # feats_list[-1] = self.pix_mem[feat](feats_list[-1], pix_mem)
-                    new_feat = self.pix_mem[feat](features[feat], pix_mem)
-                    
-                    # recombine the features in feat list to a single tensor
-                    # features[feat] = torch.cat(feats_list, dim=0)
-                    features[feat] = new_feat
-
-            # else:
-            #     feats_list = list(torch.chunk(features[feat], 3, dim=0))
-            #     features[feat] = feats_list[-1]
-                
-        # for k, v in features.items():
-        #     print(k)
-        #     print(v.shape)
-
-        cls_features, cls_inds, caption_features = None, None, None
-
-        if self.with_caption and 'caption' in ann_type:
-            inds = [torch.randint(len(x['captions']), (1,))[0].item() \
-                for x in batched_inputs]
-            caps = [x['captions'][ind] for ind, x in zip(inds, batched_inputs)]
-            caption_features = self.text_encoder(caps).float()
-        if self.sync_caption_batch:
-            caption_features = self._sync_caption_features(
-                caption_features, ann_type, len(batched_inputs))
-        
-        if self.dynamic_classifier and ann_type != 'caption':
-            cls_inds = self._sample_cls_inds(gt_instances, ann_type) # inds, inv_inds
-            ind_with_bg = cls_inds[0].tolist() + [-1]
-            cls_features = self.roi_heads.box_predictor[
-                0].cls_score.zs_weight[:, ind_with_bg].permute(1, 0).contiguous()
-            
-        classifier_info = cls_features, cls_inds, caption_features
-        proposals, proposal_losses = self.proposal_generator(
-            images, features, gt_instances)
-        
-
-        if self.roi_head_name in ['StandardROIHeads', 'CascadeROIHeads']:
-            proposals, detector_losses = self.roi_heads(
-                images, features, proposals, gt_instances)
-        else:
-            proposals, detector_losses = self.roi_heads(
-                images, features, proposals, gt_instances,
-                ann_type=ann_type, classifier_info=classifier_info)
-        
-        # add the segmentations to the proposals
-        seg = self.roi_heads.forward_mask_memory(features, proposals)
-        mask_rcnn_inference(seg, proposals)
-            
-        if self.vis_period > 0:
-            storage = get_event_storage()
-            if storage.iter % self.vis_period == 0:
-                self.visualize_training(batched_inputs, proposals)
-
-        losses = {}
-        losses.update(detector_losses)
-        if self.with_image_labels:
-            if ann_type in ['box', 'prop', 'proptag']:
-                losses.update(proposal_losses)
-            else: # ignore proposal loss for non-bbox data
-                losses.update({k: v * 0 for k, v in proposal_losses.items()})
-        else:
-            losses.update(proposal_losses)
-        if len(self.dataset_loss_weight) > 0:
-            dataset_sources = [x['dataset_source'] for x in batched_inputs]
-            assert len(set(dataset_sources)) == 1
-            dataset_source = dataset_sources[0]
-            for k in losses:
-                losses[k] *= self.dataset_loss_weight[dataset_source]
-        
-        if self.return_proposal:
-            return proposals, losses
-        else:
-            return losses
-
-    def _sync_caption_features(self, caption_features, ann_type, BS):
-        has_caption_feature = (caption_features is not None)
-        BS = (BS * self.cap_batch_ratio) if (ann_type == 'box') else BS
-        rank = torch.full(
-            (BS, 1), comm.get_rank(), dtype=torch.float32, 
-            device=self.device)
-        if not has_caption_feature:
-            caption_features = rank.new_zeros((BS, 512))
-        caption_features = torch.cat([caption_features, rank], dim=1)
-        global_caption_features = comm.all_gather(caption_features)
-        caption_features = torch.cat(
-            [x.to(self.device) for x in global_caption_features], dim=0) \
-                if has_caption_feature else None # (NB) x (D + 1)
-        return caption_features
-
-
-    def _sample_cls_inds(self, gt_instances, ann_type='box'):
-        if ann_type == 'box':
-            gt_classes = torch.cat(
-                [x.gt_classes for x in gt_instances])
-            C = len(self.freq_weight)
-            freq_weight = self.freq_weight
-        else:
-            gt_classes = torch.cat(
-                [torch.tensor(
-                    x._pos_category_ids, 
-                    dtype=torch.long, device=x.gt_classes.device) \
-                    for x in gt_instances])
-            C = self.num_classes
-            freq_weight = None
-        assert gt_classes.max() < C, '{} {}'.format(gt_classes.max(), C)
-        inds = get_fed_loss_inds(
-            gt_classes, self.num_sample_cats, C, 
-            weight=freq_weight)
-        cls_id_map = gt_classes.new_full(
-            (self.num_classes + 1,), len(inds))
-        cls_id_map[inds] = torch.arange(len(inds), device=cls_id_map.device)
-        return inds, cls_id_map
 
 @META_ARCH_REGISTRY.register()
 class CustomRCNNRecurrent(GeneralizedRCNN):
@@ -900,7 +381,7 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
             dim=1) # D x (C + 1)
         self.zs_weight = torch.nn.functional.normalize(self.zs_weight, p=2, dim=0)
 
-        # map gt params
+        # memory gt params
         with open('SMNet/semmap_GT_info.json', 'r') as f:
             self.semmap_gt_info = json.load(f)
 
@@ -951,49 +432,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
         
         return ret
 
-
-    def inference(
-        self,
-        batched_inputs: Tuple[Dict[str, torch.Tensor]],
-        detected_instances: Optional[List[Instances]] = None,
-        do_postprocess: bool = True,
-    ):
-        assert not self.training
-        assert detected_instances is None
-
-        images = self.preprocess_image(batched_inputs)
-        
-        # display the image
-        # for i in range(len(batched_inputs)):
-        #     image = images.tensor[i].permute(1, 2, 0).cpu().numpy()
-        #     cv2.imshow('image', image)
-        #     cv2.imshow('raw_image', batched_inputs[i]['image'].permute(1, 2, 0).cpu().numpy())
-        #     cv2.waitKey(0)
-
-        # also need to preprocess memory here....
-        if self.map_conditioned:
-            # get the memory and projection tensors
-            memory, projection, observations = self.preprocess_spatial_memory(batched_inputs)
-            # create memory tensor and projection tensor - sequence name added for testing projections
-            # features = self.backbone(images.tensor, memory, projection, sequence_name=batched_inputs[0]['sequence_name'])
-            features, new_memory = self.backbone(images.tensor, memory, projection, observations)
-        else:
-            features = self.backbone(images.tensor)
-        proposals, _ = self.proposal_generator(images, features, None)
-        results, proposals = self.roi_heads(images, features, proposals)
-
-        # add the segmentations to the proposals
-        mask = self.roi_heads.forward_mask_memory(features, proposals)
-        mask_rcnn_inference(mask, proposals)
-
-        if do_postprocess:
-            assert not torch.jit.is_scripting(), \
-                "Scripting is not supported for postprocess."
-            return proposals, CustomRCNN._postprocess(
-                results, batched_inputs, images.image_sizes), new_memory
-        else:
-            return proposals, results, new_memory
-
     def forward(self, batched_inputs: List[List[Dict[str, torch.Tensor]]]):
         """
         Sequential pass of model, where the memory is iteratively returned and passed to the model with the next frame
@@ -1001,21 +439,10 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
         batch_output = None
         # iterate over the batch of sequences
         for input_seq in batched_inputs:
-            # reset memory if dataloader has instructed us to do so
-            print(input_seq[0]['sequence_name'])
+            # iterate over the sequence
             for i, frame in enumerate(input_seq):
 
-                # print(frame['file_name'])
-
                 if self.training:
-
-                    ################################ MEMORY RESET ################################
-
-                    # check memory reset conditions
-                    # if self.backbone.backbone_type == 'recurrent':
-                    #     if i==0:
-                    #         print('Resetting memory')
-                    #         self.backbone.reset_memory(memory_size = input_seq[0]['memory'].shape[0], zs_weight=self.zs_weight)
                     
                     ################################ ADD MEMORY TO INPUT ################################
 
@@ -1030,13 +457,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
 
                     # generate output    
                     proposals, output, _ = self.forward_model([frame]) 
-
-                    ################################ MEMORY UPDATE ################################
-
-                    # if self.backbone.backbone_type == 'recurrent':
-                    #     with autocast():
-                    #         # call the method of the backbone function to update the memory
-                    #         self.backbone.update_memory(proposals=proposals, zs_weight=self.zs_weight, frame=frame)
                     
                     ################################ OUTPUT UPDATE ################################
 
@@ -1053,13 +473,7 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                     ################################ MEMORY RESET ################################
 
                     if frame['memory_reset']:
-                        
-                        # for recurrent model
-                        # if self.backbone.backbone_type == 'recurrent':
-                        #     print('Resetting memory')
-                        #     self.backbone.reset_memory(memory_size = input_seq[0]['memory'].shape[0], zs_weight=self.zs_weight)
-                        
-                        # for the map conditioned approach
+                        # for the memory conditioned approach
                         self.semmap_features = None
                         self.observation_count = None
                         # define the data to be saved to file
@@ -1071,36 +485,29 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                     if i == 0:
                         # UPDATE MEMORY AT THE START OF EACH EPISODE FOR THE LONG-TERM MEMORY TEST
                         if self.test_type == 'longterm':
-                            print('updating mapping memory')
                             updated_memory = self.implicit_memory
                             updated_observations = self.observations
-
-                        # reset the recurrent model ever episode if peforming inference with explicit map
-                        # if self.backbone.backbone_type == 'recurrent' and self.memory_type == 'explicit_map':
-                        #     print('Resetting memory')
-                        #     self.backbone.reset_memory(memory_size = input_seq[0]['memory'].shape[0], zs_weight=self.zs_weight)
                     
                     # update the memory every step
                     if self.test_type in ['default', 'episodic']:
-                        print('updating mapping memory')
                         updated_memory = self.implicit_memory
                         updated_observations = self.observations
 
                     ################################ ADD MEMORY TO INPUT ################################
 
                     # save the memory and proj_indices
-                    memory = torch.tensor(frame['memory'])
-                    proj_indices = torch.tensor(frame['proj_indices']).to(torch.long).squeeze(2)
+                    memory = torch.from_numpy(frame['memory']).cuda()
+                    proj_indices = torch.from_numpy(frame['proj_indices']).cuda().to(torch.long).squeeze(2)
 
                     # use the real time memory to perform inference
                     frame['memory'] = updated_memory
                     frame['observations'] = updated_observations
 
-                    # if we are generating our own memory embeddings, we need to convert the implicit memory to explicit memory
+                    # convert the implicit memory to explicit memory
                     if self.memory_type == 'explicit_map':
                         frame['memory'], frame['proj_indices'], frame['observations'] = self.create_explicit_memory(frame, visualise=False)
                     
-                    # if we are generating our own memory embeddings, we need to convert the implicit memory to explicit memory
+                    # use implicit memory embeddings
                     if self.memory_type == 'implicit_memory':
                         frame['memory'], frame['proj_indices'] = self.create_implicit_memory(frame, visualise=False)
 
@@ -1113,10 +520,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
 
                     # update the implicit memory using the proposals
                     self.update_implicit_memory(proposals, proj_indices, memory, frame, visualise=False)
-
-                    # update the memory
-                    # if self.backbone.backbone_type == 'recurrent':
-                    #     self.backbone.update_memory(proposals=proposals, zs_weight=self.zs_weight, frame=frame)
 
                     # use the predictions to generate a sem map
                     if self.save_semmap:
@@ -1146,10 +549,44 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
         if self.training:
             for key in batch_output.keys():
                 batch_output[key] /= (len(batched_inputs)*len(batched_inputs[0]))
-                # batch_output[key] /= (len(batched_inputs))
-
 
         return batch_output
+    
+    def inference(
+        self,
+        batched_inputs: Tuple[Dict[str, torch.Tensor]],
+        detected_instances: Optional[List[Instances]] = None,
+        do_postprocess: bool = True,
+    ):
+        assert not self.training
+        assert detected_instances is None
+
+        images = self.preprocess_image(batched_inputs)
+
+        # also need to preprocess memory here...
+        if self.map_conditioned:
+            # get the memory and projection tensors
+            memory, projection, observations = self.preprocess_spatial_memory(batched_inputs)
+            # memory, projection, observations = batched_inputs[0]['memory'], batched_inputs[0]['proj_indices'], batched_inputs[0]['observations']
+            # features = self.backbone(images.tensor, memory, projection, sequence_name=batched_inputs[0]['sequence_name'])
+            features, new_memory = self.backbone(images.tensor, memory, projection, observations)
+        else:
+            features = self.backbone(images.tensor)
+        
+        proposals, _ = self.proposal_generator(images, features, None)
+        results, proposals = self.roi_heads(images, features, proposals)
+
+        # add the segmentations to the proposals
+        mask = self.roi_heads.forward_mask_memory(features, proposals)
+        mask_rcnn_inference(mask, proposals)
+
+        if do_postprocess:
+            assert not torch.jit.is_scripting(), \
+                "Scripting is not supported for postprocess."
+            return proposals, CustomRCNN._postprocess(
+                results, batched_inputs, images.image_sizes), new_memory
+        else:
+            return proposals, results, new_memory
 
     def forward_model(self, batched_inputs: List[Dict[str, torch.Tensor]]):
         """
@@ -1347,8 +784,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
             self.observations = self.observation_count.squeeze().reshape(-1)
             self.observations = self.observations.cpu().numpy()
 
-            # print(np.mean(self.observations[proj_indices]))
-
     def create_explicit_memory(self, frame, visualise=False):
         memory_features = torch.from_numpy(frame['memory']).cuda()
         observations = torch.from_numpy(frame['observations']).cuda()
@@ -1422,10 +857,8 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
 
         # scale features based on intensity of observation
         memory_features[observations > 1] = memory_features[observations > 1] / (observations.unsqueeze(1)[observations > 1])
-        # scale features down further by a factor of 10 - this gives them a similar distribution to the CLIP features
-        # memory_features = memory_features / 50
 
-        # update memory
+        # # update memory
         memory = memory_features.cpu().numpy()
         
         # visualise the results
@@ -1678,11 +1111,11 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
         for x in batched_inputs:
             # convert memory and proj indices to tensor
             if not torch.is_tensor(x['memory']):
-                x['memory'] = torch.tensor(x['memory'])
+                x['memory'] = torch.from_numpy(x['memory']).cuda()
             if not torch.is_tensor(x['proj_indices']):
-                x['proj_indices'] = torch.tensor(x['proj_indices']).squeeze(2)
+                x['proj_indices'] = torch.from_numpy(x['proj_indices']).cuda().squeeze(2)
             if not torch.is_tensor(x['observations']) and x['observations'] is not None:
-                x['observations'] = torch.tensor(x['observations']).to(torch.half)
+                x['observations'] = torch.from_numpy(x['observations']).cuda().to(torch.half)
 
             # add to list of tensors
             memory.append(x['memory'].to(torch.half))
