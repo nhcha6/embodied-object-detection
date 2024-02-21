@@ -688,19 +688,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
             # project the box features into the image frame
             image_features, observed_pixels = self.box_to_image_features(box_features, masks)
 
-            # visualise the output
-            # if visualise:
-            #     ego_img = frame['image'].permute(1, 2, 0).cpu().numpy()
-                # add boxes to the image
-                # boxes = frame['instances'].gt_boxes.tensor.cpu().numpy()
-                # class_ids = frame['instances'].gt_classes.cpu().numpy()
-                # for i in range(len(boxes)):
-                #     color = palette[class_ids[i]].tolist()
-                #     cv2.rectangle(ego_img, (int(boxes[i][0]), int(boxes[i][1])), (int(boxes[i][2]), int(boxes[i][3])), color, 2)
-                # cv2.imshow('raw_image', ego_img)
-                
-                # self.backbone.visualise_clip_image_features(image_features, self.zs_weight, 'image_features')
-            
             # get the the projected features
             proj_features, observed_mem = self.project_image_features(image_features, observed_pixels, [proj_indices], [memory])
             
