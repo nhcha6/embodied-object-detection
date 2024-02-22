@@ -23,6 +23,8 @@ from detectron2.utils.logger import setup_logger
 sys.path.insert(0, 'third_party/CenterNet2/')
 from centernet.config import add_centernet_config
 from detic.config import add_detic_config
+from detectron2.utils.colormap import random_color, _COLORS
+
 
 from detic.predictor import VisualizationDemo, EmbodiedVisualizationDemo
 import torch
@@ -465,7 +467,7 @@ if __name__ == "__main__":
     map_w, map_h = 40, 40
     map_h = math.ceil(map_h / res)
     map_w = math.ceil(map_w / res)
-    empty_map = np.zeros((map_h*map_w, 3))
+    empty_map = np.zeros((map_h*map_w, 3), np.uint8)
     map_world_shift = torch.FloatTensor([-13, 0, -13]).to(device)
 
     # depth to range
@@ -477,7 +479,8 @@ if __name__ == "__main__":
     colours = [(0,0,255), (0,255,0), (255,0,0)]
     count = -1
     img_count = 0
-    for folder in os.listdir(data_path):
+    for folder in ['s11_lap1', 's11_lap2', 's11_lapcw1']:
+    # for folder in ['s11_lapcw1']:
         if os.path.isdir(data_path+folder):
             print(data_path+folder)
             images = sorted(os.listdir(data_path+folder + "/images"))
@@ -487,12 +490,11 @@ if __name__ == "__main__":
             for image in images[::2]:
 
                 ############# FIND THE CLOSEST DEPTH IMAGE AND POSE #############
-
-                time = image.split(".")[0]
+                time_t = image.split(".")[0]
                 # find the depth image with the closest time
-                closest_depth = min(depth, key=lambda x:abs(int(x.split(".")[0]) - int(time)))
+                closest_depth = min(depth, key=lambda x:abs(int(x.split(".")[0]) - int(time_t)))
                 # find the pose with the closest time
-                closest_pose = min(pose, key=lambda x:abs(int(x.split(".")[0]) - int(time)))
+                closest_pose = min(pose, key=lambda x:abs(int(x.split(".")[0]) - int(time_t)))
 
                 depth_image = cv2.imread(data_path + folder + "/depth/" + closest_depth, cv2.IMREAD_ANYDEPTH)
                 pose_val = np.load(data_path + folder + "/pose/" + closest_pose)
@@ -506,6 +508,9 @@ if __name__ == "__main__":
                     rgb_image = convert_PIL_to_numpy(rgb_image, 'RGB')
 
                 ############ PROJECT IMAGE ONTO MAP #############
+
+                # time pipeline
+                start_time = time.time()
 
                 # convert depth to format for projection
                 depth_var = depth_image/1000
@@ -539,37 +544,59 @@ if __name__ == "__main__":
                 # draw dot on rgb_image at 320,320
                 cv2.circle(rgb, (480,240), 5, (0,0,255), -1)
 
-                # iterate through each pixel and update the map
-                # if pixels_in_map[0,240,480,0] < 40/res and pixels_in_map[0,240,480,1] < 40/res:
-                    # empty_map[pixels_in_map[0,240,480,0], pixels_in_map[0,240,480,1]] = colours[count]
-                    # empty_map[robot_pos[0], robot_pos[1]] = (0,165,255)
-                
                 # update map
-                empty_map[proj_indices[240,480,0]] = colours[count]
+                # empty_map[proj_indices[240,480,0]] = colours[count]
                 empty_map[robot_pos[0]*map_h + robot_pos[1]] = (0,165,255)
-
-                # # show map and set to dynamic window size
-                # cv2.namedWindow('map', cv2.WINDOW_NORMAL)
-                # cv2.imshow("map", empty_map.reshape(map_h, map_w, 3))
-                
-                # # show image
-                # cv2.namedWindow('Image')
-                # cv2.imshow("Image", rgb)
-                # cv2.imshow("depth", depth_image)
-                # cv2.waitKey(0)
 
                 ############### GENERATE OBJECT DETECTION DATA ##################
 
-                # create empty memory
+                # create empty memory for visualisation
                 memory = np.zeros((map_w*map_h, 256))
 
-                inputs = {"image": rgb_image, "proj_indices": proj_indices, "memory_reset": img_count==0, "sequence_name": folder, "memory": memory}
+                # generate inputs
+                inputs = {"image": rgb_image, "proj_indices": proj_indices.astype(np.int32), "memory_reset": img_count==0, "sequence_name": folder, "memory": memory.astype(np.float32), "robot_pos": robot_pos.cpu().numpy()}
                 img_count += 1
 
-                predictions, visualized_output = demo.run_on_data(inputs)
-                print(predictions)
+                start_time = time.time()
 
+                # run the model
+                predictions, visualized_output = demo.run_on_data(inputs)
+
+                # end time
+                end_time = time.time()
+                print("Time: ", end_time - start_time)
+
+                # visualise the projected objects
+                # show_map = np.zeros((map_h*map_w, 3), np.uint8)
+                show_map = empty_map.copy()
+                for k in range(predictions['instances'].pred_classes.shape[0]):
+                    # get the class and the bounding box
+                    class_id = predictions['instances'].pred_classes[k].item()
+                    bbox = predictions['instances'].pred_boxes[k].tensor.cpu().numpy().astype(int)
+                    masks = predictions['instances'].pred_masks[k]
+
+                    # return indices where the mask is true
+                    mask_indices = np.where(masks.cpu().numpy())
+
+                    for i in range(mask_indices[0].shape[0]):
+                        plot_col = _COLORS[(class_id)+2]*255
+                        show_map[proj_indices[mask_indices[0][i],mask_indices[1][i],0]] = plot_col
+                show_map = show_map.reshape(map_h, map_w, 3)
+                show_map = cv2.cvtColor(show_map, cv2.COLOR_RGB2BGR)
+
+                # vis depth image
+                depth_min = np.min(depth_image)
+                depth_max = 15000
+                depth_image = depth_image - depth_min
+                depth_image = depth_image / (depth_max - depth_min)
+                depth_image = cv2.normalize(depth_image, dst=None, alpha=0, beta=255,norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+
+                cv2.namedWindow('map', cv2.WINDOW_NORMAL)
+                cv2.imshow("map", show_map)
                 cv2.namedWindow('ImageWindow',cv2.WINDOW_NORMAL)
-                # cv2.resizeWindow('image', 600,600)
                 cv2.imshow('ImageWindow',visualized_output.get_image()[:, :, ::-1])
-                cv2.waitKey(0)
+                cv2.namedWindow('DepthImage',cv2.WINDOW_NORMAL)
+                cv2.imshow('DepthImage',depth_image)
+                cv2.waitKey(1)
+
+

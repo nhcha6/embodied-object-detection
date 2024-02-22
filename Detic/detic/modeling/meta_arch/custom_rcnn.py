@@ -441,7 +441,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
         for input_seq in batched_inputs:
             # iterate over the sequence
             for i, frame in enumerate(input_seq):
-
                 if self.training:
                     
                     ################################ ADD MEMORY TO INPUT ################################
@@ -465,6 +464,7 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                         batch_output = output
 
                 else:
+                    start = time.time()       
                     
                     ################################ MEMORY RESET ################################
 
@@ -504,7 +504,7 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                         frame['memory'], frame['proj_indices'] = self.create_implicit_memory(frame, visualise=False)
 
                     ################################ INFERENCE ################################
-
+                    
                     # run inference      
                     proposals, output, _ = self.inference([frame])
 
@@ -536,7 +536,9 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                         batch_output.extend(output)
                     else:
                         batch_output = output
-            
+
+                    print('Time taken for forward pass: ', time.time() - start)
+                    
         # calculate the average loss
         if self.training:
             for key in batch_output.keys():
@@ -727,7 +729,7 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                 # default to using 200x200
                 except KeyError:
                     map_w, map_h = 200, 200
-
+            
             semmap_update = semmap_update.reshape(map_h, map_w, 512)
             semmap_update = semmap_update.permute(2, 0, 1).unsqueeze(0)
 
