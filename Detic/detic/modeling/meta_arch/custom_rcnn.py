@@ -464,7 +464,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                         batch_output = output
 
                 else:
-                    start = time.time()       
                     
                     ################################ MEMORY RESET ################################
 
@@ -473,9 +472,9 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                         self.semmap_features = None
                         self.observation_count = None
                         # define the data to be saved to file
-                        self.semmap = np.full((input_seq[0]['memory'].shape[0],), -1, dtype=np.int32)
-                        self.implicit_memory = np.full((input_seq[0]['memory'].shape[0],512), 0, dtype=np.float32)
-                        self.observations = np.full((input_seq[0]['memory'].shape[0],), 0, dtype=np.float32)
+                        self.semmap = torch.full((input_seq[0]['memory'].shape[0],), -1, dtype=torch.int32)
+                        self.implicit_memory = torch.full((input_seq[0]['memory'].shape[0],512), 0, dtype=torch.float32)
+                        self.observations = torch.full((input_seq[0]['memory'].shape[0],), 0, dtype=torch.float32)
                     
                     # update the semmap memory at the start of every episode
                     if i == 0:
@@ -537,8 +536,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                     else:
                         batch_output = output
 
-                    print('Time taken for forward pass: ', time.time() - start)
-                    
         # calculate the average loss
         if self.training:
             for key in batch_output.keys():
@@ -741,7 +738,6 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                 self.semmap_features = semmap_update
                 self.observation_count = observed_update
             else:
-                # self.semmap_features = (semmap*i + semmap_update)/(i+1)
                 self.semmap_features = self.semmap_features + semmap_update
                 self.observation_count = self.observation_count + observed_update
             
@@ -756,19 +752,21 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
             if visualise:
                 cv2.namedWindow("Grayscale Image", cv2.WINDOW_NORMAL)
                 cv2.imshow("Grayscale Image", (255*observation_intensity.permute(1,2,0)).cpu().numpy().astype(np.uint8))
-            
             self.semmap = self.visualise_clip_image_features(self.semmap_features, self.zs_weight, 'semmap', mask = observation_intensity, thresh=self.obs_score_thresh, visualise=visualise)
 
             # convert the features and observations to numpy to save to file
             self.implicit_memory = self.semmap_features.squeeze().permute(1,2,0).reshape(-1, 512)
-            self.implicit_memory = self.implicit_memory.cpu().numpy()
             self.observations = self.observation_count.squeeze().reshape(-1)
-            self.observations = self.observations.cpu().numpy()
 
     def create_implicit_memory(self, frame, visualise=False):
         # get the current memory features
-        memory_features = torch.from_numpy(frame['memory']).cuda()
-        observations = torch.from_numpy(frame['observations']).cuda()
+        memory_features = frame['memory'].clone()
+        observations = frame['observations'].clone()
+
+        if not torch.is_tensor(memory_features):
+            memory_features = torch.from_numpy(memory_features).cuda()
+            observations = torch.from_numpy(observations).cuda()
+
         proj_indices = frame['proj_indices']
 
         # scale features based on intensity of observation
