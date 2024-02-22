@@ -1,6 +1,6 @@
 opencv-python
 mss
-timm
+timm==0.5.4 
 dataclasses
 ftfy
 regex
@@ -8,4 +8,5 @@ fasttext
 scikit-learn
 lvis
 nltk
+h5py
 git+https://github.com/openai/CLIP.git
