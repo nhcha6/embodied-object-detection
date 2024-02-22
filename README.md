@@ -49,10 +49,28 @@ pip install -r requirements.txt
 
 		python train_mp3d.py --num-gpus 1 --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml --eval-only MODEL.WEIGHTS models/detic_finetuned.pth MODEL.TEST_DATA_PATH embodied_data/mp3d_example/ OUTPUT_DIR output/finetuned_detic/
 
-4) DETIC Pre-trained:
+4) Fine-tuned DETIC + Implicit Object Memory:
 
 		python train_mp3d.py --num-gpus 1 --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml --eval-only MODEL.WEIGHTS models/implicit_object_memory.pth MODEL.MAP_FEAT_FUSION sum MODEL.MEMORY_TYPE implicit_memory MODEL.MAP_FEATURE_WEIGHT 5 MODEL.TEST_DATA_PATH embodied_data/mp3d_example/ OUTPUT_DIR output/implicit_object_memory/
 
+## Demo on real robot
+1) Download our collected data from [here]() and place in Detic/embodied_data. The folder structure should look as follows:
+```bash
+embodied-object-detection
+└── Detic
+    ├── embodied_data
+        ├── mp3d_example
+        │   └── ...
+        └── robot_example
+            └── lap1
+            └── lap2
+            └── lapcw1
+```
+2) To run fine-tuned detic with implicit object memory:
+    
+		python robot_demo.py --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml --vocabulary mp3d --confidence-threshold 0.3 --data_path embodied_data/robot_example/ --opts  MODEL.WEIGHTS models/implicit_object_memory.pth MODEL.MEMORY_TYPE implicit_memory MODEL.MAP_FEATURE_WEIGHT 5
+
+3) To run other models, update MODEL.WEIGHTS and MODEL.MEMORY_TYPE as per the 'Inference on example data'
 
 ## Generate the full dataset for training/testing
 Coming soon
