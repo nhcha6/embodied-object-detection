@@ -775,7 +775,7 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
         memory_features[observations > 1] = memory_features[observations > 1] / (observations.unsqueeze(1)[observations > 1])
 
         # # update memory
-        memory = memory_features.cpu().numpy()
+        # memory = memory_features.cpu().numpy()
         
         # visualise the results
         if visualise:
@@ -821,7 +821,7 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
             # visualise the update
             semmap = self.visualise_clip_image_features(memory_features, self.zs_weight, 'semmap', mask = observation_intensity, thresh=0.4, visualise=visualise)
 
-        return memory, proj_indices
+        return memory_features, proj_indices
     
     def inference_with_proposals(self, proposals, zs_weight, thresh):
         # get the box features, then convert to scores
