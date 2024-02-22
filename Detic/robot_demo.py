@@ -470,11 +470,6 @@ if __name__ == "__main__":
     empty_map = np.zeros((map_h*map_w, 3), np.uint8)
     map_world_shift = torch.FloatTensor([-13, 0, -13]).to(device)
 
-    # depth to range
-    # depth_to_range = np.zeros((480,640))
-    # for i in range(480):
-    #     for j in range(640):
-    #         depth_to_range[i,j] = math.cos(abs(i-240)/480 * vfov)*math.cos(abs(j-320)/640 * hfov)
 
     colours = [(0,0,255), (0,255,0), (255,0,0)]
     count = -1

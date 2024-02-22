@@ -500,7 +500,7 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                     
                     # use implicit memory embeddings
                     if self.memory_type == 'implicit_memory':
-                        frame['memory'], frame['proj_indices'] = self.create_implicit_memory(frame, visualise=False)
+                        frame['memory'], frame['proj_indices'] = self.create_implicit_memory(frame)
 
                     ################################ INFERENCE ################################
                     

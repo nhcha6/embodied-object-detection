@@ -10,8 +10,8 @@ import numpy as np
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2.utils.video_visualizer import VideoVisualizer
-from detectron2.utils.visualizer import ColorMode, Visualizer
-from detectron2.utils.colormap import random_color
+from detic.visualizer import ColorMode, Visualizer
+from detectron2.utils.colormap import random_color, _COLORS
 
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.modeling import build_model
@@ -19,6 +19,8 @@ import detectron2.data.transforms as T
 
 
 from .modeling.utils import reset_cls_test
+
+import time
 
 def get_clip_embeddings(vocabulary, prompt='a '):
     from detic.modeling.text.text_encoder import build_text_encoder
@@ -59,7 +61,7 @@ class VisualizationDemo(object):
         elif args.vocabulary == 'mp3d':
             self.metadata = MetadataCatalog.get("__unused")
             self.metadata.thing_classes = ["bed", "stool", "towel", "fireplace", "picture", "cabinet", "toilet", "curtain", "lighting", "table", "shelving", "mirror", "sofa", "cushion", "bathtub", "chair", "chest_of_drawers", "sink", "seating", "tv_monitor"]
-            self.metadata.thing_colors = [random_color(rgb=True, maximum=1) for _ in range(len(self.metadata.thing_classes))]
+            self.metadata.thing_colors = [_COLORS[i*2] for i in range(len(self.metadata.thing_classes))]
             classifier = 'datasets/metadata/mp3d_clip.npy'
         else:
             self.metadata = MetadataCatalog.get(
@@ -195,7 +197,16 @@ class EmbodiedVisualizationDemo(object):
         elif args.vocabulary == 'mp3d':
             self.metadata = MetadataCatalog.get("__unused")
             self.metadata.thing_classes = ["bed", "stool", "towel", "fireplace", "picture", "cabinet", "toilet", "curtain", "lighting", "table", "shelving", "mirror", "sofa", "cushion", "bathtub", "chair", "chest_of_drawers", "sink", "seating", "tv_monitor"]
-            self.metadata.thing_colors = [random_color(rgb=True, maximum=1) for _ in range(len(self.metadata.thing_classes))]
+            self.metadata.thing_colors = [_COLORS[i+2] for i in range(len(self.metadata.thing_classes))]
+            # create image the color of self.metadata.thing_colors[3]
+            # img = np.zeros((100,100,3), np.uint8)
+            # print(self.metadata.thing_colors[4])
+            # img[:,:] = self.metadata.thing_colors[4]*255
+            # # switch rgb
+            # img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            # print(img)
+            # cv2.imshow('image', img)
+            # cv2.waitKey(0)
             classifier = 'datasets/metadata/mp3d_clip.npy'
         else:
             self.metadata = MetadataCatalog.get(
@@ -267,7 +278,6 @@ class EmbodiedVisualizationDemo(object):
         
         # Convert image from OpenCV BGR format to Matplotlib RGB format.
         # image = image[:, :, ::-1]
-
         visualizer = Visualizer(image, self.metadata, instance_mode=self.instance_mode)
         if "panoptic_seg" in predictions:
             panoptic_seg, segments_info = predictions["panoptic_seg"]
@@ -424,7 +434,10 @@ class EmbodiedPredictor:
             # features = self.model.backbone([inputs])
             # print(features)
 
+            start = time.time()
             predictions = self.model([[inputs]])[0]
+            end = time.time()
+            print("Time taken: ", end - start)
             return predictions
 
 class AsyncPredictor:
