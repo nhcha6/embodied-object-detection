@@ -434,10 +434,8 @@ class EmbodiedPredictor:
             # features = self.model.backbone([inputs])
             # print(features)
 
-            start = time.time()
             predictions = self.model([[inputs]])[0]
             end = time.time()
-            print("Time taken: ", end - start)
             return predictions
 
 class AsyncPredictor:

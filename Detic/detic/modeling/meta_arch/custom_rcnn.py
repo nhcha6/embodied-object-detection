@@ -704,27 +704,26 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                 map_h = math.ceil(map_h / self.downsample)
                 map_w = math.ceil(map_w / self.downsample)
             except KeyError:
-                split_name = frame['sequence_name'].split('_')
-                if len(split_name) == 5:
-                    house = split_name[0] + '_' + split_name[1] + '_' + split_name[2]
-                    level = split_name[3]
-                elif len(split_name) == 4:
-                    house = split_name[0] + '_' + split_name[1]
-                    level = split_name[2]
-                else:
-                    house = split_name[0] + '_' + split_name[1]
-                    level = None
-                
-                if level is not None:
-                    env = '_'.join((house, level))
-                else:
-                    env = house
-
                 try:
+                    split_name = frame['sequence_name'].split('_')
+                    if len(split_name) == 5:
+                        house = split_name[0] + '_' + split_name[1] + '_' + split_name[2]
+                        level = split_name[3]
+                    elif len(split_name) == 4:
+                        house = split_name[0] + '_' + split_name[1]
+                        level = split_name[2]
+                    else:
+                        house = split_name[0] + '_' + split_name[1]
+                        level = None
+                    
+                    if level is not None:
+                        env = '_'.join((house, level))
+                    else:
+                        env = house
                     map_w, _, map_h = self.replica_map_info[env]['dim']
 
                 # default to using 200x200
-                except KeyError:
+                except:
                     map_w, map_h = 200, 200
             
             semmap_update = semmap_update.reshape(map_h, map_w, 512)

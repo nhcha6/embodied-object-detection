@@ -409,7 +409,6 @@ class Visualizer:
                 [x for x in self.metadata.thing_colors[c]] for c in classes
             ]
             alpha = 0.8
-            print(colors)
         else:
             colors = None
             alpha = 0.5

@@ -395,6 +395,11 @@ def get_parser():
         default="",
         help="",
     )
+    parser.add_argument(
+        "--data_path",
+        default="embodied_data/robot_example/",
+        help="",
+    )
     parser.add_argument("--pred_all_class", action='store_true')
     parser.add_argument(
         "--confidence-threshold",
@@ -441,7 +446,7 @@ if __name__ == "__main__":
     demo = EmbodiedVisualizationDemo(cfg, args)
 
     # embodied imports
-    data_path = "/home/nicolas/Documents/jackle_data/"
+    data_path = args.data_path
     device = torch.device("cuda")
 
     map_world_shift = np.zeros(3)
@@ -474,8 +479,7 @@ if __name__ == "__main__":
     colours = [(0,0,255), (0,255,0), (255,0,0)]
     count = -1
     img_count = 0
-    for folder in ['s11_lap1', 's11_lap2', 's11_lapcw1']:
-    # for folder in ['s11_lapcw1']:
+    for folder in os.listdir(data_path):
         if os.path.isdir(data_path+folder):
             print(data_path+folder)
             images = sorted(os.listdir(data_path+folder + "/images"))
@@ -578,6 +582,8 @@ if __name__ == "__main__":
                         show_map[proj_indices[mask_indices[0][i],mask_indices[1][i],0]] = plot_col
                 show_map = show_map.reshape(map_h, map_w, 3)
                 show_map = cv2.cvtColor(show_map, cv2.COLOR_RGB2BGR)
+                # rotate show_map by 180 degrees
+                show_map = cv2.rotate(show_map, cv2.ROTATE_180)
 
                 # vis depth image
                 depth_min = np.min(depth_image)
