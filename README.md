@@ -1,10 +1,21 @@
 # Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory
 ## Example data preparation ##
-1) Download example data and place in Detic/embodied_data/
-2) Download pre-trained DETIC models and place in Detic/models
-	- ImageNet Backbone: https://miil-public-eu.oss-eu-central-1.aliyuncs.com/model-zoo/ImageNet_21K_P/models/resnet50_miil_21k.pth
-	- DETIC: https://dl.fbaipublicfiles.com/detic/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth
-3) Download the models trained in our experiments from here and place in models
+1) Download example data from [here](https://1drv.ms/u/s!AnUcX0micjmciuR7uvg0ITSEiJh3Yg?e=vd708r) and place in Detic/embodied_data/
+2) Download the models used in our experiments from [here](https://1drv.ms/u/s!AnUcX0micjmciuR6DAwkBLwqxbH53Q?e=83RWlk) here and place in Detic/models
+3) The added data should have the following structure:
+```bash
+embodied-object-detection
+└── Detic
+    ├── embodied_data
+    │   └── mp3d_example
+    │       └── ...
+    └── models
+        ├── detic_finetuned.pth
+        ├── Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size.pth
+        ├── implicit_object_memory.pth
+        ├── resnet50_miil_21k.pth
+        └── vanilla_training.pth
+```
 
 ## Virtual environment preparation ##
 Example virtual environment set-up on Linux:
