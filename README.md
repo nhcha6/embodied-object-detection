@@ -1,4 +1,6 @@
 # Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory
+Official repository for the paper 'Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory'.
+
 ## Example data preparation ##
 1) Download example data from [here](https://1drv.ms/u/s!AnUcX0micjmciuR7FYs7_4i9bKK6PA) and place in Detic/embodied_data/
 2) Download the models used in our experiments from [here](https://1drv.ms/u/s!AnUcX0micjmciuR6rLJOb9RVjT5sgQ?e=Dg4wUn) here and place in Detic/models
@@ -18,7 +20,7 @@ embodied-object-detection
 ```
 
 ## Virtual environment preparation ##
-Example virtual environment set-up on Linux:
+Example virtual environment set-up on Linux using [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html#mamba-install):
 ```bash
 # create environment and install pytorch
 mamba create --name eod_env python=3.10 -y
@@ -85,6 +87,4 @@ Coming soon
 ## Train models
 Coming soon
 
-## ROS demo
-Coming soon
 
