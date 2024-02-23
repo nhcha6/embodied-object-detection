@@ -1,6 +1,6 @@
 # Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory
 ## Example data preparation ##
-1) Download example data from [here](https://1drv.ms/u/s!AnUcX0micjmciuR7uvg0ITSEiJh3Yg?e=vd708r)(https://1drv.ms/u/s!AnUcX0micjmciuR7FYs7_4i9bKK6PA?e=LvK5cO) and place in Detic/embodied_data/
+1) Download example data from [here](https://1drv.ms/u/s!AnUcX0micjmciuR7FYs7_4i9bKK6PA) and place in Detic/embodied_data/
 2) Download the models used in our experiments from [here](https://1drv.ms/u/s!AnUcX0micjmciuR6rLJOb9RVjT5sgQ?e=Dg4wUn) here and place in Detic/models
 3) The added data should have the following structure:
 ```bash
@@ -37,6 +37,7 @@ pip install -r requirements.txt
 ```
 
 ## Inference on example data ##
+We provide scripts to calculate evaluation metrics for the pre-trained models on the example data.
 1) Detic Pre-trained:
 
 		python train_mp3d.py --num-gpus 1 --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml --eval-only MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size.pth MODEL.MEMORY_TYPE image_only MODEL.TEST_DATA_PATH embodied_data/mp3d_example/ OUTPUT_DIR output/pre-trained/
@@ -54,6 +55,7 @@ pip install -r requirements.txt
 		python train_mp3d.py --num-gpus 1 --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml --eval-only MODEL.WEIGHTS models/implicit_object_memory.pth MODEL.MAP_FEAT_FUSION sum MODEL.MEMORY_TYPE implicit_memory MODEL.MAP_FEATURE_WEIGHT 5 MODEL.TEST_DATA_PATH embodied_data/mp3d_example/ OUTPUT_DIR output/implicit_object_memory/
 
 ## Demo on real robot
+We also provide the code and data to perform inference with the pre-trained models on data collected on a real robot. This script visualised the performance of the embodied object detector, the projection of the detections into memory and the depth and localisation data used in the method.
 1) Download our collected data from [here](https://1drv.ms/u/s!AnUcX0micjmciuR8Uh3m3RejabJ2kg?e=3bd6ps) and place in Detic/embodied_data. The folder structure should look as follows:
 ```bash
 embodied-object-detection
