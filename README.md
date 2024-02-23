@@ -72,7 +72,7 @@ embodied-object-detection
     
 		python robot_demo.py --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml --vocabulary mp3d --confidence-threshold 0.3 --data_path embodied_data/robot_example/ --opts  MODEL.WEIGHTS models/implicit_object_memory.pth MODEL.MEMORY_TYPE implicit_memory MODEL.MAP_FEATURE_WEIGHT 5
 
-3) To run other models, update MODEL.WEIGHTS and MODEL.MEMORY_TYPE as per the 'Inference on example data'
+3) To run other models, update MODEL.WEIGHTS and MODEL.MEMORY_TYPE as per the [Inference on example data](#inference-on-example-data)
 
 ## Generate the full dataset for training/testing
 Coming soon
