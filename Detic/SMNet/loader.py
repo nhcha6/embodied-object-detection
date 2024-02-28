@@ -91,6 +91,8 @@ class SMNetDetectionLoader(data.Dataset):
 
         self.files = os.listdir(self.memory_path)
 
+        # self.files = [x for x in self.files if '8194nk' in x]
+
         # sort the files
         def custom_sort(string):
             string_split = string.split('_')
