@@ -398,7 +398,7 @@ def do_test(cfg, model):
             # semantic_gt = True if cfg.MODEL.MEMORY_TYPE == 'semantic_gt' else False
             memory_type = cfg.MODEL.MEMORY_TYPE
             semmap_path = '' # cfg.MODEL.SEMMAP_PATH
-            v_loader = SMNetDetectionLoader(data_path=cfg.MODEL.TRAIN_DATA_PATH, test_type=cfg.MODEL.TEST_TYPE, clip_path = clip_path, memory_type=memory_type, semmap_path=semmap_path)
+            v_loader = SMNetDetectionLoader(data_path=cfg.MODEL.TEST_DATA_PATH, test_type=cfg.MODEL.TEST_TYPE, clip_path = clip_path, memory_type=memory_type, semmap_path=semmap_path)
             v_sampler = InferenceSampler(len(v_loader))
 
             data_loader = DataLoader(

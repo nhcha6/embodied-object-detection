@@ -145,9 +145,7 @@ if __name__ == '__main__':
             for m, seq in info[env].items():
 
                 filename = os.path.join(output_dir, env+'_{}.h5'.format(m))
-                if os.path.exists(filename):
-                    continue
-
+                
                 start = seq['start']
 
                 sub_path = {}

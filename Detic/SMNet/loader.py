@@ -125,7 +125,6 @@ class SMNetDetectionLoader(data.Dataset):
         
         # info for map projection
         self.semmap_info = json.load(open('SMNet/semmap_GT_info.json', 'r'))
-        self.resolution = 0.02
 
         # select which classes are to be included for detections
         # object_lvis = ['bed', 'stool', 'towel', 'fireplace', 'picture', 'cabinet', 'toilet', 'curtain', 'lighting', 'table', 'shelving', 'mirror', 'sofa', 'cushion', 'bathtub', 'chair', 'chest_of_drawers', 'sink', 'seating', 'tv_monitor']
