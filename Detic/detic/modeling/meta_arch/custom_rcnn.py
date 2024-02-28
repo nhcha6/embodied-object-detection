@@ -475,6 +475,8 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                         self.semmap = torch.full((input_seq[0]['memory'].shape[0],), -1, dtype=torch.int32)
                         self.implicit_memory = torch.full((input_seq[0]['memory'].shape[0],512), 0, dtype=torch.float32)
                         self.observations = torch.full((input_seq[0]['memory'].shape[0],), 0, dtype=torch.float32)
+                        print('memory rest')
+                        print(self.implicit_memory.shape)
                     
                     # update the semmap memory at the start of every episode
                     if i == 0:
