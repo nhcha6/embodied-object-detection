@@ -77,12 +77,36 @@ embodied-object-detection
 3) To run other models, update MODEL.WEIGHTS and MODEL.MEMORY_TYPE as per the [Inference on example data](#inference-on-example-data)
 
 ## Generate the full dataset for training/testing
-Coming soon
-<!-- 1) cd Semantic-Mapnet
-2) Run create_coco_replica.py to create coco annotations and JPEGImages
-3) Run precompute_training_inputs/build_replica_data.py to generate the core sequence data used to train and test Semantic-Mapnet
-4) Run precompute_training_inputs/build_replica_memory_features.py to generate the compressed spatial memory and projection indices required by the dataloader. Needs to be run separately for the continuous testing sequences.
-5) Copy across replica_map_info.json to have map dimension information for visualisation -->
+First, create a new virtual environment to run the habitat simulator:
+
+
+To prepare the Matterport3D and Replica datasets for testing and training embodied object detetection:
+1) Download the Matterport data from [here](https://niessner.github.io/Matterport/) and the Replica data from [here](https://github.com/facebookresearch/Replica-Dataset)
+2) Navigate to the SMNet folder
+	```bash
+	cd SMNet
+	```
+3) Run scripts to generate a coco dataset from the Matterport and Replica scenes
+	```bash
+	python create_coco_mp3d.py --data_path /user/path/to/Matterport/
+	```
+ 	```bash
+	python create_coco_replica.py --data_path /user/path/to/Replica-Dataset/
+	```
+4) Runs scripts to generate the sensor data for embodied object detections from the Matterport and Replica scenes
+	```bash
+	python create_coco_mp3d.py --data_path /user/path/to/Matterport/
+	```
+ 	```bash
+	python create_coco_replica.py --data_path /user/path/to/Replica-Dataset/
+	``` 
+5) Runs scripts to generate the projection infomration used to read and write to external memory
+	```bash
+	python build_memory_data.py --data_path /user/path/to/Matterport/
+	```
+ 	```bash
+	python build_replica_memory_data.py --data_path /user/path/to/Replica-Dataset/
+	```  
 
 ## Train models
 Coming soon
