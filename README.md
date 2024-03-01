@@ -1,7 +1,12 @@
-# Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory
-Official repository for the paper 'Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory'.
+# Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory #
+Official repository for the paper [Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory](https://embodied-object-detection.github.io/). This repository contains code for:
+* Performing inference with the proposed embodied object detectors on an [example dataset](#example-data-preparation)
+* Performing infrerence the proposed embodied object detectors on data collected by a [real robot](#demo-on-real-robot)
+* [Generating the complete dataset](#generate-the-full-dataset-for-training-and-testing) used for testing and training
+* Training the proposed [embodied object detector](#train-models)
 
 ## Example data preparation ##
+We provide a small example dataset for testing the models trained in our paper. This is NOT the complete dataset, but enables developers to familiarise themselves with the method without having to generate the complete the dataset.
 1) Download example data from [here](https://1drv.ms/u/s!AnUcX0micjmciuR7FYs7_4i9bKK6PA) and place in Detic/embodied_data/
 2) Download the models used in our experiments from [here](https://1drv.ms/u/s!AnUcX0micjmciuR6rLJOb9RVjT5sgQ?e=Dg4wUn) here and place in Detic/models
 3) The added data should have the following structure:
@@ -20,7 +25,7 @@ embodied-object-detection
 ```
 
 ## Virtual environment preparation ##
-Example virtual environment set-up on Linux using [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html#mamba-install):
+Prepare the virtual environment using [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html#mamba-install) to run the embodied object detectors on Linux systems
 ```bash
 # create environment and install pytorch
 mamba create --name eod_env python=3.10 -y
@@ -40,7 +45,7 @@ pip install -r requirements.txt
 
 ## Inference on example data ##
 We provide scripts to calculate evaluation metrics for the pre-trained models on the example data.
-1) Detic Pre-trained:
+1) Detic Pre-trained
 
 		python train_mp3d.py --num-gpus 1 --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml --eval-only MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size.pth MODEL.MEMORY_TYPE image_only MODEL.TEST_DATA_PATH embodied_data/mp3d_example/ OUTPUT_DIR output/pre-trained/
 
@@ -76,7 +81,7 @@ embodied-object-detection
 
 3) To run other models, update MODEL.WEIGHTS and MODEL.MEMORY_TYPE as per the [Inference on example data](#inference-on-example-data)
 
-## Generate the full dataset for training/testing
+## Generate the full dataset for training and testing
 First, we need to create a new environment for running the habitat simulator, separate to that used to test and train the embodied object detector. 
 1) Create the new environment
 	```bash
