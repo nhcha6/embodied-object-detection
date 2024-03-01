@@ -63,8 +63,8 @@ if __name__ == '__main__':
     splits = ['train', 'val', 'test']
     for split in splits:
 
-        if split != 'val':
-            continue 
+        # if split != 'val':
+            # continue 
     
         # -- settings
         # output_dir = 'data/training/smnet_training_data_2/'
@@ -145,7 +145,7 @@ if __name__ == '__main__':
             for m, seq in info[env].items():
 
                 filename = os.path.join(output_dir, env+'_{}.h5'.format(m))
-                
+
                 start = seq['start']
 
                 sub_path = {}

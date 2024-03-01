@@ -25,8 +25,8 @@ if __name__ == '__main__':
     splits = ['train', 'val', 'test']
     for split in splits:
 
-        if split != 'val':
-            continue
+        # if split != 'val':
+            # continue
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
