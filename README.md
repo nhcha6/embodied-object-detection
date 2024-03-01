@@ -77,10 +77,33 @@ embodied-object-detection
 3) To run other models, update MODEL.WEIGHTS and MODEL.MEMORY_TYPE as per the [Inference on example data](#inference-on-example-data)
 
 ## Generate the full dataset for training/testing
-First, create a new virtual environment to run the habitat simulator:
-
-
-To prepare the Matterport3D and Replica datasets for testing and training embodied object detetection:
+First, we need to create a new environment for running the habitat simulator, separate to that used to test and train the embodied object detector. 
+1) Create the new environment
+	```bash
+	mamba create --name habitat_env python=3.6
+	mamba activate habitat_env
+	```
+2) Install the required pytorch and opencv versions
+	```bash
+	mamba install pytorch=1.7.1 torchvision=0.8.2 cudatoolkit=11.0 -c pytorch -c nvidia
+	pip install opencv-python==3.4.0.14
+	```
+Habitat-sim version [v0.1.7](https://github.com/facebookresearch/habitat-sim/tree/v0.1.7) and habitat-lab [v0.1.5](https://github.com/facebookresearch/habitat-lab/tree/v0.1.5) then need to be install. We provide instructions for installing these packages on linux using mamba. We further include in this repo a version of habitat-lab with minor changes to ensure compatability with both the Replica and Matterport datasets.
+1) Install habitat-sim
+	```bash
+	mamba install habitat-sim=0.1.7 -c conda-forge -c aihabitat
+	```
+ 2) Install requirements for habitat-lab
+	```bash
+	mamba install -c conda-forge scikit-build pyyaml h5py yacs
+	```
+ 3) Navigate to the provided habitat-lab source code and build the package
+	```bash
+	cd embodied-object-detection/habitat-lab
+	python setup.py develop --all
+	```
+ 
+Next, we need to prepare the Matterport3D and Replica datasets for performing embodied object detetection:
 1) Download the Matterport data from [here](https://niessner.github.io/Matterport/) and the Replica data from [here](https://github.com/facebookresearch/Replica-Dataset)
 2) Navigate to the SMNet folder
 	```bash
@@ -95,10 +118,10 @@ To prepare the Matterport3D and Replica datasets for testing and training embodi
 	```
 4) Runs scripts to generate the sensor data for embodied object detections from the Matterport and Replica scenes
 	```bash
-	python create_coco_mp3d.py --data_path /user/path/to/Matterport/
+	python build_data.py --data_path /user/path/to/Matterport/
 	```
  	```bash
-	python create_coco_replica.py --data_path /user/path/to/Replica-Dataset/
+	python build_replica_data.py --data_path /user/path/to/Replica-Dataset/
 	``` 
 5) Runs scripts to generate the projection infomration used to read and write to external memory
 	```bash
