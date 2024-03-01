@@ -98,9 +98,10 @@ Habitat-sim version [v0.1.7](https://github.com/facebookresearch/habitat-sim/tre
 	```bash
 	mamba install habitat-sim=0.1.7 -c conda-forge -c aihabitat
 	```
- 2) Install requirements for habitat-lab
+ 2) Install requirements for running habitat
 	```bash
 	mamba install -c conda-forge scikit-build pyyaml h5py yacs
+ 	pip install torch-scatter==1.4.0
 	```
  3) Navigate to the provided habitat-lab source code and build the package
 	```bash
