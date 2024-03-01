@@ -1,0 +1,16 @@
+ifcfg
+numba>=0.44.0
+imageio-ffmpeg>=0.2.0
+tensorflow==1.13.1
+attrs>=19.1.0
+gym==0.10.9
+numpy-quaternion>=2019.3.18.14.33.20
+scipy>=1.0.0
+tqdm>=4.0.0
+imageio>=2.2.0
+torch>=1.3.1
+yacs>=0.1.5
+opencv-python>=3.3.0
+numpy>=1.16.1
+moviepy>=1.0.1
+tb-nightly
