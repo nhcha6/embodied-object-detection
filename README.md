@@ -138,6 +138,15 @@ Next, we need to prepare the Matterport3D and Replica datasets for performing em
 	```  
 
 ## Train models
-Coming soon
+The first step in our training pipeline is to fine-tune Detic using the image data only. To fine-tune Detic on the training set while using the validation dataset for testing, run the following:
 
+	python train_mp3d.py --num-gpus 1 --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml MODEL.WEIGHTS models/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size.pth MODEL.MEMORY_TYPE image_only MODEL.TRAIN_DATA_PATH embodied_data/mp3d_train/ MODEL.TEST_DATA_PATH embodied_data/mp3d_val/ OUTPUT_DIR output/finetuned_detic_train/
+
+Note the path of the model with the best performance on the validation dataset. This model should be used for testing, and also to precompute the implicit object memory for training our proposed embodied object detector. Run the following to calculate the implicit object memory, ensuring the model weights correspond to your fine-tuned Detic model.
+
+	python train_mp3d.py --num-gpus 1 --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml --eval-only MODEL.WEIGHTS models/detic_finetuned.pth MODEL.TEST_DATA_PATH embodied_data/mp3d_train/ OUTPUT_DIR output/finetuned_detic_inference/ MODEL.TEST_SAVE_SEMMAP True
+
+We can now use the precomputed memory to train the proposed embodied object detector. To do so, run 
+
+	python train_mp3d.py --num-gpus 1 --config-file configs/Detic_LCOCOI21k_CLIP_R5021k_640b32_4x_ft4x_max-size_mp3d_recurrent.yaml MODEL.WEIGHTS models/detic_finetuned.pth MODEL.TRAIN_DATA_PATH embodied_data/mp3d_train/ MODEL.TEST_DATA_PATH embodied_data/mp3d_val/ OUTPUT_DIR output/implicit_object_memory_train/ MODEL.SEMMAP_PATH output/finetuned_detic_inference/memory
 
