@@ -520,14 +520,14 @@ class CustomRCNNRecurrent(GeneralizedRCNN):
                         # save the semmap to file
                         if i==0:
                             # create output dir if needed
-                            os.makedirs(os.path.join(self.output_dir, 'semmap'), exist_ok=True)
+                            os.makedirs(os.path.join(self.output_dir, 'memory'), exist_ok=True)
 
                             print('Saving memory')
                             # write the memory to h5_file
-                            with h5py.File(os.path.join(self.output_dir, 'semmap', frame['sequence_name']), 'w') as f:
+                            with h5py.File(os.path.join(self.output_dir, 'memory', frame['sequence_name']), 'w') as f:
                                 f.create_dataset('semmap', data=self.semmap, dtype=np.int32)
-                                f.create_dataset('impicit_memory', data=self.implicit_memory, dtype=np.float32)
-                                f.create_dataset('observations', data=self.observations, dtype=np.float32)
+                                f.create_dataset('impicit_memory', data=self.implicit_memory.cpu().numpy(), dtype=np.float32)
+                                f.create_dataset('observations', data=self.observations.cpu().numpy(), dtype=np.float32)
 
                     ################################ OUTPUT UPDATE ################################
 
