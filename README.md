@@ -8,7 +8,7 @@ Official repository for the paper [Enhanced Embodied Object Detection with Langu
 ## Example data preparation ##
 We provide a small example dataset for testing the models trained in our paper. This is NOT the complete dataset, but enables developers to familiarise themselves with the method without having to generate the complete the dataset.
 1) Download example data from [here](https://1drv.ms/u/s!AnUcX0micjmciuR7FYs7_4i9bKK6PA) and place in Detic/embodied_data/
-2) Download the models used in our experiments from [here](https://1drv.ms/u/s!AnUcX0micjmciuR6rLJOb9RVjT5sgQ?e=Dg4wUn) here and place in Detic/models
+2) Download the models used in our experiments from [here](https://1drv.ms/u/s!AnUcX0micjmciuU3ozLp9aLgWJ1NwQ?e=fQFWBV) here and place in Detic/models
 3) The added data should have the following structure:
 ```bash
 embodied-object-detection
