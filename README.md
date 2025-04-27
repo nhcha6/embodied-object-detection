@@ -1,5 +1,5 @@
-# Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory #
-Official repository for the paper [Enhanced Embodied Object Detection with Language Image Pre-training and Implicit Object Memory](https://embodied-object-detection.github.io/). This repository contains code for:
+# Enhanced Embodied Object Detection with Spatial Feature Memory #
+Official repository for the paper [Enhanced Embodied Object Detection with Spatial Feature Memory](https://ieeexplore.ieee.org/abstract/document/10944108). This repository contains code for:
 * Performing inference with the proposed embodied object detectors on an [example dataset](#example-data-preparation)
 * Performing infrerence the proposed embodied object detectors on data collected by a [real robot](#demo-on-real-robot)
 * [Generating the complete dataset](#generate-the-full-dataset-for-training-and-testing) used for testing and training
